@@ -1,0 +1,1234 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>Receipt me</title>
+<link rel="icon" href="favicon.svg" type="image/svg+xml">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<style>
+  :root {
+    --page:   #d0d5db;
+    --win:    #ffffff;
+    --bar:    #f1f1f1;
+    --well:   #f6f6f6;
+    --ink:    #000000;
+    --muted:  #666666;
+    --paper:  #fafaf9;
+    --shadow-lg: 8px 8px 0 0 var(--ink);
+    --shadow-md: 6px 6px 0 0 var(--ink);
+    --shadow-sm: 3px 3px 0 0 var(--ink);
+    --mono: "Geist Mono", "JetBrains Mono", ui-monospace, SFMono-Regular, Menlo, monospace;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; padding: 0; }
+  body {
+    background: var(--page);
+    color: var(--ink);
+    font-family: var(--mono);
+    font-size: 14px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+    -webkit-text-size-adjust: 100%;
+  }
+  .wrap {
+    max-width: 600px;
+    margin: 0 auto;
+    padding: 22px 14px calc(40px + env(safe-area-inset-bottom));
+    min-height: 100dvh;
+  }
+  @media (min-width: 640px) {
+    .wrap { padding: 44px 24px 72px; }
+  }
+  .view { display: none; }
+  .view.active { display: block; }
+  .view.center-col.active { display: flex; flex-direction: column; align-items: center; }
+
+  /* ---------------- logo card ---------------- */
+  .logo-card {
+    width: 150px; height: 56px;
+    margin: 0 auto 22px;
+    background: var(--well);
+    border: 1px solid var(--ink);
+    border-radius: 2px;
+    box-shadow: var(--shadow-sm);
+    display: grid; place-items: center;
+    overflow: hidden;
+  }
+  .logo-card img { width: 128px; height: auto; display: block; }
+  /* clickable variant on the printing / result screens */
+  button.logo-card { appearance: none; padding: 0; font: inherit; cursor: pointer; transition: box-shadow .12s ease, transform .12s ease; }
+  button.logo-card:hover { box-shadow: 4px 4px 0 0 var(--ink); }
+  button.logo-card:active { transform: translate(2px, 2px); box-shadow: 1px 1px 0 0 var(--ink); }
+
+  /* ---------------- window ---------------- */
+  .window {
+    width: 100%;
+    background: var(--win);
+    border: 1px solid var(--ink);
+    border-radius: 6px;
+    box-shadow: var(--shadow-md);
+    overflow: hidden;
+  }
+  @media (min-width: 640px) { .window { box-shadow: var(--shadow-lg); } }
+
+  .titlebar {
+    display: flex; align-items: center; gap: 10px;
+    height: 32px; padding: 0 12px;
+    background: var(--bar);
+    border-bottom: 1px solid var(--ink);
+  }
+  .tb-box {
+    flex: none; width: 14px; height: 14px;
+    background: #fff; border: 1px solid var(--ink); border-radius: 1px;
+    display: grid; place-items: center;
+  }
+  .tb-box i { width: 6px; height: 6px; background: #fff; border: 1px solid var(--ink); display: block; }
+  .tb-stripes {
+    flex: 1 1 auto; min-width: 0; height: 16px;
+    display: flex; flex-direction: column; justify-content: center; gap: 2px;
+  }
+  .tb-stripes span { height: 1px; width: 100%; background: var(--ink); }
+  .titlebar .title {
+    flex: 0 1 auto; min-width: 0;
+    font-weight: 700; font-size: 13px; letter-spacing: .5px;
+    white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  @media (max-width: 380px) {
+    .titlebar .title { font-size: 11px; letter-spacing: 0; }
+    .tb-stripes { display: none; }
+  }
+
+  .win-body {
+    display: flex; flex-direction: column; gap: 20px;
+    padding: 16px;
+  }
+  @media (min-width: 640px) { .win-body { padding: 24px; } }
+
+  .menubar {
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 10px; padding: 8px 0;
+    border-bottom: 1px solid var(--ink);
+  }
+  .menu-left { display: flex; align-items: center; gap: 14px; min-width: 0; }
+  @media (max-width: 420px) { .menu-left { gap: 10px; } }
+  .mini-bars {
+    flex: none; width: 15px; height: 14px;
+    background-image: repeating-linear-gradient(90deg,
+      var(--ink) 0 3px, transparent 3px 5px,
+      var(--ink) 5px 6px, transparent 6px 9px,
+      var(--ink) 9px 11px, transparent 11px 14px,
+      var(--ink) 14px 15px);
+  }
+  .menu-left span { font-weight: 600; font-size: 12px; }
+  @media (max-width: 420px) { .menu-left span { font-size: 11px; } }
+  .sysinfo { flex: none; color: var(--muted); font-size: 10px; }
+  @media (max-width: 440px) { .sysinfo { display: none; } }
+
+  h1.retro { margin: 0; font-weight: 700; font-size: 22px; line-height: 1.15; }
+  @media (max-width: 360px) { h1.retro { font-size: 20px; } }
+
+  .section { display: flex; flex-direction: column; gap: 6px; }
+  .section > .lbl {
+    display: flex; align-items: baseline; justify-content: space-between; gap: 8px;
+    font-size: 11px;
+  }
+  .section > .lbl .name { font-weight: 700; }
+  .section > .lbl .name em { font-style: normal; font-weight: 400; color: var(--muted); }
+  .section > .lbl .ctr { font-weight: 400; color: var(--muted); font-variant-numeric: tabular-nums; }
+  .section > .lbl .ctr.warn { color: var(--ink); font-weight: 700; }
+
+  .well {
+    background: var(--well);
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    padding: 16px;
+  }
+  .dropzone {
+    position: relative;
+    width: 100%;
+    background: #fff;
+    border: 1px dashed var(--ink);
+    border-radius: 4px;
+    padding: 24px;
+    cursor: pointer;
+    transition: border-color .2s ease, background-color .25s ease;
+  }
+  /* hover / drag: dashed border -> blue, paper -> blue tint (Figma 21:46) */
+  .dropzone:hover,
+  .dropzone.drag { border-color: #0000ee; background-color: #eaeafd; }
+
+  .dz-empty {
+    display: flex; flex-direction: column; gap: 12px;
+    align-items: center; justify-content: center; text-align: center;
+    min-height: 120px;
+  }
+
+  /* the 🧾 fans out into a trio of receipts on hover / drag */
+  .dz-stack { position: relative; width: 46px; height: 46px; }
+  .dz-stack .dz-emoji {
+    position: absolute; left: 50%; top: 50%;
+    font-size: 40px; line-height: 1; will-change: transform;
+  }
+  .dz-stack .main {
+    transform: translate(-50%, -50%);
+    transition: transform .28s cubic-bezier(.2, .7, .3, 1), filter .25s ease;
+    z-index: 2;
+  }
+  .dz-stack .ghost {
+    transform: translate(-50%, -50%) rotate(0deg) scale(.9);
+    opacity: 0;
+    transition: transform .32s cubic-bezier(.2, .7, .3, 1), opacity .24s ease;
+    z-index: 1;
+  }
+  .dropzone:hover .dz-stack .main,
+  .dropzone.drag  .dz-stack .main {
+    transform: translate(-50%, -50%) translateY(-1px) scale(1.05);
+    filter: drop-shadow(0 1px 6px rgba(0, 0, 0, .25));
+  }
+  .dropzone:hover .dz-stack .g-l,
+  .dropzone.drag  .dz-stack .g-l {
+    transform: translate(-50%, -50%) translate(-15px, -4px) rotate(-13.27deg) scale(1);
+    opacity: .8;
+  }
+  .dropzone:hover .dz-stack .g-r,
+  .dropzone.drag  .dz-stack .g-r {
+    transform: translate(-50%, -50%) translate(15px, -4px) rotate(13.27deg) scale(1);
+    opacity: .8;
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .dz-stack .main, .dz-stack .ghost { transition: opacity .15s ease; }
+  }
+  .dz-main { font-weight: 700; font-size: 12px; }
+  .dz-browse { font-size: 11px; color: var(--muted); text-decoration: underline; }
+  .dz-browse:hover { text-decoration: none; }
+  .dz-types { font-size: 10px; color: var(--muted); }
+
+  .dz-filled { display: none; align-items: center; gap: 16px; }
+  .dropzone.has-photo .dz-empty { display: none; }
+  .dropzone.has-photo .dz-filled { display: flex; }
+  .dz-thumb {
+    position: relative; flex: none;
+    width: 96px; height: 96px;
+    border: 1px solid var(--ink); border-radius: 4px; overflow: hidden;
+  }
+  .dz-thumb img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .dz-remove {
+    position: absolute; top: 3px; right: 3px;
+    width: 14px; height: 14px; padding: 0;
+    border: 1px solid var(--ink); background: #fff; color: var(--ink);
+    font-size: 11px; line-height: 1; cursor: pointer;
+    display: grid; place-items: center;
+  }
+  .dz-meta { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .dz-name { font-weight: 700; font-size: 14px; word-break: break-all; }
+  .dz-size { font-size: 11px; color: var(--muted); }
+
+  .seg {
+    display: flex; gap: 4px;
+    background: var(--well);
+    border: 1px solid var(--ink);
+    border-radius: 6px;
+    padding: 4px;
+  }
+  .seg button {
+    flex: 1 1 0; min-width: 0; height: 32px;
+    display: flex; align-items: center; justify-content: center; gap: .35em;
+    border: none; background: transparent; color: var(--ink);
+    font: inherit; font-weight: 600; font-size: 11px;
+    border-radius: 4px; cursor: pointer;
+    white-space: nowrap;
+    transition: background-color .14s ease;
+  }
+  .seg button.on { background: var(--ink); color: #fff; font-weight: 700; }
+  .seg button:not(.on):hover { background: rgba(0, 0, 0, .05); }
+  /* the [ ] holds a fixed 1ch slot; the x stamps in when active or hovered */
+  .seg button .box i {
+    display: inline-block; width: 1ch; text-align: center; font-style: normal;
+    opacity: 0; transform: scale(.35);
+    transition: opacity .14s ease, transform .2s cubic-bezier(.34, 1.6, .5, 1);
+  }
+  .seg button.on .box i,
+  .seg button:not(.on):hover .box i { opacity: 1; transform: scale(1); }
+  @media (prefers-reduced-motion: reduce) {
+    .seg button .box i,
+    .seg button.on .box i,
+    .seg button:not(.on):hover .box i { transition: opacity .12s ease; transform: none; }
+  }
+
+  .input, textarea.text {
+    width: 100%;
+    background: #fff;
+    border: 1px solid var(--ink);
+    border-radius: 4px;
+    font: inherit; color: var(--ink);
+  }
+  .input { height: 38px; padding: 0 12px; font-size: 12px; }
+  textarea.text {
+    min-height: 120px; padding: 12px;
+    font-size: 11px; line-height: 1.5;
+    resize: vertical;
+  }
+  .input::placeholder, textarea.text::placeholder { color: var(--muted); }
+  .input:focus::placeholder { color: transparent; }
+
+  .go {
+    width: 100%;
+    display: flex; align-items: center; justify-content: center; gap: 8px;
+    padding: 13px 24px;
+    font: inherit; font-weight: 500; font-size: 14px; letter-spacing: 1px;
+  }
+  .go svg { width: 16px; height: 16px; display: block; flex: none; }
+  .go:disabled { opacity: .4; }
+
+  /* ===== skeuomorphic buttons — Figma 27:7 (light) / 30:7 (dark) ===== */
+  .btn3d {
+    position: relative;
+    border: 1px solid transparent;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: background .15s ease, box-shadow .15s ease, border-color .15s ease, color .1s ease, transform .06s ease;
+  }
+  .btn3d:disabled { cursor: not-allowed; }
+
+  .btn3d.light {
+    color: #000; border-color: #5a5a5a;
+    background: linear-gradient(180deg, #fafafa 0%, #e6e6e6 45%, #c3c3c3 100%);
+    box-shadow:
+      inset -1.5px 0 0 rgba(0,0,0,.12), inset 0 -1.5px 0 rgba(0,0,0,.2),
+      inset 1.5px 0 0 rgba(255,255,255,.5), inset 0 1.5px 0 rgba(255,255,255,.85);
+  }
+  .btn3d.light:not(:disabled):hover {
+    border-color: #646464;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.55) 0%, rgba(255,255,255,.12) 45%, rgba(255,255,255,0) 50%, rgba(255,255,255,0) 100%),
+      linear-gradient(180deg, #fcfcfa 0%, #eeedeb 35%, #cdcbc8 100%);
+    box-shadow:
+      inset -2px 0 1px rgba(0,0,0,.15), inset 0 -2px 1px rgba(0,0,0,.22),
+      inset 2px 0 0 rgba(255,255,255,.7), inset 0 2px 0 #fff;
+  }
+  .btn3d.light:not(:disabled):active {
+    border-color: #464646; color: #323232;
+    background: linear-gradient(180deg, #a0a0a0 0%, #afafaf 50%, #c8c8c8 100%);
+    box-shadow:
+      inset -1px 0 0 rgba(255,255,255,.2), inset 0 -1px 0 rgba(255,255,255,.35),
+      inset 2px 0 1px rgba(0,0,0,.15), inset 0 2px 2px rgba(0,0,0,.3);
+    transform: translateY(1px);
+  }
+
+  .btn3d.dark {
+    color: #fff; border-color: #000;
+    background: linear-gradient(180deg, #414141 0%, #282828 45%, #121212 100%);
+    box-shadow:
+      inset -1.5px 0 0 rgba(0,0,0,.3), inset 0 -1.5px 0 rgba(0,0,0,.5),
+      inset 1.5px 0 0 rgba(255,255,255,.1), inset 0 1.5px 0 rgba(255,255,255,.18);
+  }
+  .btn3d.dark:not(:disabled):hover {
+    border-color: #6e6e6e;
+    background:
+      linear-gradient(180deg, rgba(255,255,255,.3) 0%, rgba(255,255,255,.08) 40%, rgba(255,255,255,0) 48%, rgba(255,255,255,0) 100%),
+      linear-gradient(180deg, #555555 0%, #373737 40%, #191919 100%);
+    box-shadow:
+      inset -2px 0 1px rgba(0,0,0,.4), inset 0 -2px 1px rgba(0,0,0,.6),
+      inset 2px 0 0 rgba(255,255,255,.18), inset 0 2px 0 rgba(255,255,255,.3);
+  }
+  .btn3d.dark:not(:disabled):active {
+    border-color: #000; color: #b4b4b4;
+    background: linear-gradient(180deg, #0f0f0f 0%, #161616 50%, #232323 100%);
+    box-shadow:
+      inset 0 -1px 0 rgba(255,255,255,.08),
+      inset 2px 0 2px rgba(0,0,0,.35), inset 0 2px 3px rgba(0,0,0,.6);
+    transform: translateY(1px);
+  }
+  @media (prefers-reduced-motion: reduce) {
+    .btn3d:not(:disabled):active { transform: none !important; }
+  }
+
+  .sysfoot {
+    display: flex; justify-content: space-between; gap: 10px;
+    padding-top: 12px;
+    border-top: 1px solid var(--ink);
+    color: var(--muted); font-size: 10px;
+  }
+
+  :focus-visible { outline: 2px solid var(--ink); outline-offset: 2px; }
+
+  /* ---------------- printer + feed ---------------- */
+  #printing, #result { text-align: center; }
+
+  /* only the slot — no housing / background panel */
+  .printer {
+    position: relative;
+    width: min(92vw, 420px);
+    height: 46px;
+    margin: 0 auto;
+    z-index: 3;
+  }
+  .printer .slot {
+    position: absolute; inset: 0;
+    border: 4px solid #3f3f46;
+    border-radius: 999px;
+    background: linear-gradient(180deg, #27272a, #09090b);
+    box-shadow: inset 0 4px 8px rgba(0,0,0,.63);
+    overflow: hidden;
+  }
+  .printer .slot::after {              /* the bright hole the receipt feeds through */
+    content: "";
+    position: absolute; inset: 8px 16px;
+    background: #f2f6fc;
+    border-radius: 999px;
+  }
+
+  /* while printing: receipt emerges from the slot. after: canvas drops to a lower
+     resting position; the ::before shadow is NOT transformed, so it stays at the slot. */
+  #feed {
+    width: min(84vw, 388px); height: 300px;
+    margin: -38px auto 0; overflow: hidden; position: relative; z-index: 6;
+    -webkit-mask-image: linear-gradient(#000 82%, transparent);
+            mask-image: linear-gradient(#000 82%, transparent);
+  }
+  #feed::before, #stage::before {      /* soft shadow anchored at the slot exit */
+    content: "";
+    position: absolute; left: 0; right: 0; top: 0; height: 34px;
+    background: linear-gradient(180deg, rgba(0,0,0,.5), rgba(0,0,0,0));
+    z-index: 2; pointer-events: none;
+  }
+  #feed canvas { width: 100%; height: auto; display: block; }
+  #feed.run canvas {
+    animation: feed 1.7s steps(24) forwards, drop .55s cubic-bezier(.25,.7,.35,1) 1.75s forwards;
+  }
+  @keyframes feed { from { transform: translateY(-100%); } to { transform: translateY(0); } }
+  @keyframes drop { from { transform: translateY(0); } to { transform: translateY(58px); } }
+  #printing .status {
+    margin-top: 22px; font-size: 12px; letter-spacing: .3em; text-transform: uppercase; color: var(--muted);
+  }
+  #printing .status::after { content: "\2588"; margin-left: 4px; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+  /* the loading label slides down and out into transparency as the receipt leaves the slot */
+  #feed.run ~ .status { animation: statusOut .6s ease-in 1.75s forwards; }
+  @keyframes statusOut {
+    from { opacity: 1; transform: translateY(0); }
+    to   { opacity: 0; transform: translateY(76px); }
+  }
+
+  /* ---------------- result ---------------- */
+  #stage { width: min(84vw, 388px); margin: -38px auto 58px; position: relative; z-index: 6; }
+  #stage canvas {
+    width: 100%; height: auto; display: block;
+    transform: translateY(58px);            /* dropped resting position */
+    filter: drop-shadow(0 22px 30px rgba(30,28,24,.16));
+  }
+  .actions { display: flex; gap: 10px; width: min(90vw, 400px); margin: 30px auto 0; }
+  .actions button {
+    flex: 1; font: inherit; font-weight: 700; font-size: 12px;
+    letter-spacing: .1em; text-transform: uppercase;
+    padding: 13px 10px;
+  }
+  .saved { margin: 12px auto 0; text-align: center; font-size: 10px; color: var(--muted); }
+
+  @media (prefers-reduced-motion: reduce) {
+    #feed.run canvas { animation-duration: .01s; }
+    #feed.run ~ .status { animation-duration: .01s; animation-delay: 0s; }
+    #printing .status::after { animation: none; }
+    .go:active, .actions button:active { transform: none; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <!-- ================= START ================= -->
+  <section class="view active" id="start">
+    <div class="logo-card"><img src="assets/logo-receipt-me.svg" alt="Receipt me"></div>
+
+    <form class="window" id="form" novalidate>
+      <div class="titlebar" aria-hidden="true">
+        <span class="tb-box"></span>
+        <span class="tb-stripes"><span></span><span></span><span></span><span></span><span></span></span>
+        <span class="title">Receipt Me — Image Converter</span>
+        <span class="tb-stripes"><span></span><span></span><span></span><span></span><span></span></span>
+        <span class="tb-box"><i></i></span>
+      </div>
+
+      <div class="win-body">
+        <div class="menubar" aria-hidden="true">
+          <div class="menu-left">
+            <span class="mini-bars"></span>
+            <span>File</span><span>Edit</span><span>View</span><span>Special</span><span>Help</span>
+          </div>
+          <div class="sysinfo">System 7.0.1</div>
+        </div>
+
+        <h1 class="retro">Turn yourself into receipt</h1>
+
+        <!-- 1. Photo -->
+        <div class="section">
+          <div class="lbl"><span class="name">1. Photo</span></div>
+          <div class="well">
+            <div class="dropzone" id="drop" tabindex="0" role="button" aria-label="Add a photo">
+              <div class="dz-empty">
+                <div class="dz-stack" aria-hidden="true">
+                  <span class="dz-emoji ghost g-l">🧾</span>
+                  <span class="dz-emoji ghost g-r">🧾</span>
+                  <span class="dz-emoji main">🧾</span>
+                </div>
+                <div>
+                  <div class="dz-main">Drag &amp; drop your photo here</div>
+                  <div class="dz-browse">or browse files</div>
+                </div>
+                <div class="dz-types">PNG, JPG, TIFF (MAX 8MB)</div>
+              </div>
+              <div class="dz-filled">
+                <div class="dz-thumb">
+                  <img id="preview" alt="Uploaded photo">
+                  <button type="button" class="dz-remove" id="removePhoto" aria-label="Remove photo">&times;</button>
+                </div>
+                <div class="dz-meta">
+                  <span class="dz-name" id="fileName"></span>
+                  <span class="dz-size" id="fileSize"></span>
+                </div>
+              </div>
+            </div>
+          </div>
+          <input type="file" id="file" accept="image/*" hidden>
+        </div>
+
+        <!-- 2. Photo Style -->
+        <div class="section">
+          <div class="lbl"><span class="name">2. Photo Style</span></div>
+          <div class="seg" id="seg" role="tablist">
+            <button type="button" data-style="print" class="on" role="tab" aria-selected="true"><span class="box" aria-hidden="true">[<i>x</i>]</span>PRINT (DITHERED)</button>
+            <button type="button" data-style="ascii" role="tab" aria-selected="false"><span class="box" aria-hidden="true">[<i>x</i>]</span>ASCII MATRIX</button>
+          </div>
+        </div>
+
+        <!-- 3. Headline -->
+        <div class="section">
+          <div class="lbl">
+            <span class="name">3. Headline <em>(Optional)</em></span>
+            <span class="ctr" id="headlineCount">0 / 30</span>
+          </div>
+          <input type="text" class="input" id="headline" maxlength="30" spellcheck="false"
+                 placeholder="*** ORIGINAL TRANS ***">
+        </div>
+
+        <!-- 4. Your Text -->
+        <div class="section">
+          <div class="lbl">
+            <span class="name">4. Your Text</span>
+            <span class="ctr" id="count">0 / 600</span>
+          </div>
+          <textarea class="text" id="text" maxlength="600" spellcheck="false"></textarea>
+        </div>
+
+        <button type="submit" class="go btn3d dark" id="go">
+          <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true"><path d="M1.875 2.5H1.125C1.056 2.5 1 2.556 1 2.625V13.375C1 13.444 1.056 13.5 1.125 13.5H1.875C1.944 13.5 2 13.444 2 13.375V2.625C2 2.556 1.944 2.5 1.875 2.5ZM14.891 2.5H14.141C14.072 2.5 14.016 2.556 14.016 2.625V13.375C14.016 13.444 14.072 13.5 14.141 13.5H14.891C14.959 13.5 15.016 13.444 15.016 13.375V2.625C15.016 2.556 14.959 2.5 14.891 2.5ZM3.125 11.5H4.875C4.944 11.5 5 11.444 5 11.375V2.625C5 2.556 4.944 2.5 4.875 2.5H3.125C3.056 2.5 3 2.556 3 2.625V11.375C3 11.444 3.056 11.5 3.125 11.5ZM8.141 11.5H8.891C8.959 11.5 9.016 11.444 9.016 11.375V2.625C9.016 2.556 8.959 2.5 8.891 2.5H8.141C8.072 2.5 8.016 2.556 8.016 2.625V11.375C8.016 11.444 8.072 11.5 8.141 11.5ZM10.109 11.5H12.891C12.959 11.5 13.016 11.444 13.016 11.375V2.625C13.016 2.556 12.959 2.5 12.891 2.5H10.109C10.041 2.5 9.984 2.556 9.984 2.625V11.375C9.984 11.444 10.041 11.5 10.109 11.5ZM6.125 11.5H6.875C6.944 11.5 7 11.444 7 11.375V2.625C7 2.556 6.944 2.5 6.875 2.5H6.125C6.056 2.5 6 2.556 6 2.625V11.375C6 11.444 6.056 11.5 6.125 11.5ZM4.891 12.5H3.141C3.072 12.5 3.016 12.556 3.016 12.625V13.375C3.016 13.444 3.072 13.5 3.141 13.5H4.891C4.959 13.5 5.016 13.444 5.016 13.375V12.625C5.016 12.556 4.959 12.5 4.891 12.5ZM8.906 12.5H8.156C8.088 12.5 8.031 12.556 8.031 12.625V13.375C8.031 13.444 8.088 13.5 8.156 13.5H8.906C8.975 13.5 9.031 13.444 9.031 13.375V12.625C9.031 12.556 8.975 12.5 8.906 12.5ZM12.906 12.5H10.125C10.056 12.5 10 12.556 10 12.625V13.375C10 13.444 10.056 13.5 10.125 13.5H12.906C12.975 13.5 13.031 13.444 13.031 13.375V12.625C13.031 12.556 12.975 12.5 12.906 12.5ZM6.891 12.5H6.141C6.072 12.5 6.016 12.556 6.016 12.625V13.375C6.016 13.444 6.072 13.5 6.141 13.5H6.891C6.959 13.5 7.016 13.444 7.016 13.375V12.625C7.016 12.556 6.959 12.5 6.891 12.5Z" fill="currentColor"/></svg>
+          RECEIPT ME
+        </button>
+
+        <div class="sysfoot" aria-hidden="true">
+          <span>Memory: 128K Available</span>
+          <span>Printer: ImageWriter II</span>
+        </div>
+      </div>
+    </form>
+  </section>
+
+  <!-- ================= PRINTING ================= -->
+  <section class="view center-col" id="printing">
+    <button type="button" class="logo-card logo-link" aria-label="Back to start"><img src="assets/logo-receipt-me.svg" alt=""></button>
+    <div class="printer"><span class="slot"></span></div>
+    <div id="feed"></div>
+    <div class="status">Printing</div>
+  </section>
+
+  <!-- ================= RESULT ================= -->
+  <section class="view center-col" id="result">
+    <button type="button" class="logo-card logo-link" aria-label="Back to start"><img src="assets/logo-receipt-me.svg" alt=""></button>
+    <div class="printer"><span class="slot"></span></div>
+    <div id="stage"></div>
+    <div class="actions">
+      <button class="dl btn3d dark" id="download">Download PNG</button>
+      <button class="again btn3d light" id="again">Make another</button>
+    </div>
+    <p class="saved">Saves as receipt-me.png</p>
+  </section>
+
+</div>
+
+<script src="receipt-ascii-3d.js"></script>
+<script>
+(() => {
+  "use strict";
+  const $ = s => document.querySelector(s);
+
+  const HEADLINE_DEFAULT = "ALEX RIVERA";
+  const BODY_DEFAULT =
+`> product designer · lisbon
+
+# ABOUT
+Designer who likes building small,
+slightly useless tools on weekends.
+Big on coffee, typography and receipts.
+
+# DETAILS
+Role :: Design Lead
+Focus :: UI / Brand / Prototyping
+Since :: 2016
+
+# CONTACT
+Email :: hi@alexrivera.co
+Site :: alexrivera.co
+
+> thanks for reading`;
+
+  // Logo (Figma node 1:345) — same asset the homepage uses.
+  const LOGO_ASPECT = 129.31 / 31.1163;
+  const logoImg = new Image();
+  const logoReady = new Promise(res => { logoImg.onload = res; logoImg.onerror = res; });
+  logoImg.src = "assets/logo-receipt-me.svg";
+
+  /* ---------------- state ---------------- */
+  let photoSource = null;
+  let style = "print";
+  let outCanvas = null;
+
+  const els = {
+    start: $("#start"), printing: $("#printing"), result: $("#result"),
+    drop: $("#drop"), file: $("#file"), preview: $("#preview"), removePhoto: $("#removePhoto"),
+    fileName: $("#fileName"), fileSize: $("#fileSize"),
+    seg: $("#seg"),
+    headline: $("#headline"), headlineCount: $("#headlineCount"),
+    text: $("#text"), count: $("#count"),
+    go: $("#go"), form: $("#form"),
+    feed: $("#feed"), stage: $("#stage"), download: $("#download"), again: $("#again"),
+  };
+
+  els.headline.value = HEADLINE_DEFAULT;
+  els.text.value = BODY_DEFAULT;
+
+  function show(view) {
+    for (const v of [els.start, els.printing, els.result]) v.classList.remove("active");
+    view.classList.add("active");
+    document.body.dataset.view = view.id;
+    window.scrollTo(0, 0);
+  }
+
+  /* ---------------- photo input ---------------- */
+  function formatSize(b) {
+    if (!b) return "";
+    return b < 1048576 ? Math.max(1, Math.round(b / 1024)) + " KB" : (b / 1048576).toFixed(1) + " MB";
+  }
+  function loadPhoto(file) {
+    if (!file || !file.type.startsWith("image/")) return;
+    const img = new Image();
+    img.onload = () => {
+      photoSource = img;
+      els.preview.src = img.src;
+      els.fileName.textContent = (file.name || "IMAGE.JPG").toUpperCase();
+      els.fileSize.textContent = formatSize(file.size);
+      els.drop.classList.add("has-photo");
+      refreshGo();
+    };
+    img.src = URL.createObjectURL(file);
+  }
+  els.drop.addEventListener("click", e => { if (e.target !== els.removePhoto) els.file.click(); });
+  els.drop.addEventListener("keydown", e => { if (e.key === "Enter" || e.key === " ") { e.preventDefault(); els.file.click(); } });
+  els.file.addEventListener("change", () => loadPhoto(els.file.files[0]));
+  els.drop.addEventListener("dragover", e => { e.preventDefault(); els.drop.classList.add("drag"); });
+  els.drop.addEventListener("dragleave", () => els.drop.classList.remove("drag"));
+  els.drop.addEventListener("drop", e => {
+    e.preventDefault(); els.drop.classList.remove("drag");
+    if (e.dataTransfer.files[0]) loadPhoto(e.dataTransfer.files[0]);
+  });
+  window.addEventListener("paste", e => {
+    const item = [...(e.clipboardData?.items || [])].find(i => i.type.startsWith("image/"));
+    if (item) loadPhoto(item.getAsFile());
+  });
+  els.removePhoto.addEventListener("click", () => {
+    photoSource = null;
+    els.preview.hidden = true; els.preview.removeAttribute("src");
+    els.drop.classList.remove("has-photo");
+    els.file.value = "";
+    refreshGo();
+  });
+
+  /* ---------------- style toggle ---------------- */
+  const SEG_LABEL = { print: "PRINT (DITHERED)", ascii: "ASCII MATRIX" };
+  function paintSeg() {
+    [...els.seg.children].forEach(b => {
+      const on = b.dataset.style === style;
+      b.classList.toggle("on", on);
+      b.setAttribute("aria-selected", on ? "true" : "false");
+      b.innerHTML = '<span class="box" aria-hidden="true">[<i>x</i>]</span>' + SEG_LABEL[b.dataset.style];
+    });
+  }
+  els.seg.addEventListener("click", e => {
+    const b = e.target.closest("button[data-style]");
+    if (!b) return;
+    style = b.dataset.style;
+    paintSeg();
+  });
+  paintSeg();
+
+  /* ---------------- counters ---------------- */
+  function bindCounter(input, out, max, warnAt) {
+    const upd = () => {
+      const n = input.value.length;
+      out.textContent = n + " / " + max;
+      out.classList.toggle("warn", n >= warnAt);
+    };
+    input.addEventListener("input", () => { upd(); refreshGo(); });
+    upd();
+  }
+  function refreshGo() {
+    els.go.disabled = !(els.headline.value.trim() || els.text.value.trim() || photoSource);
+  }
+  bindCounter(els.headline, els.headlineCount, 30, 27);
+  bindCounter(els.text, els.count, 600, 540);
+  refreshGo();
+
+  /* ================================================================
+     SEEDED RANDOM
+  ================================================================ */
+  function hashStr(s) {
+    let h = 2166136261 >>> 0;
+    for (let i = 0; i < s.length; i++) { h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    return h >>> 0;
+  }
+  function mulberry32(a) {
+    return function () {
+      a |= 0; a = a + 0x6D2B79F5 | 0;
+      let t = Math.imul(a ^ a >>> 15, 1 | a);
+      t = t + Math.imul(t ^ t >>> 7, 61 | t) ^ t;
+      return ((t ^ t >>> 14) >>> 0) / 4294967296;
+    };
+  }
+
+  /* ================================================================
+     PHOTO -> RECEIPT TILE  (returns a 1152x1152 canvas)
+  ================================================================ */
+  const S = 3;
+  const INK = [26, 25, 24], PAP = [250, 250, 249];   // near-black on very light off-white
+  const CF = (259 * (15 + 255)) / (255 * (259 - 15));   // contrast +15
+  const IG = 1 / 1.10;                                   // gamma 1.10
+  const EXP = 5;                                         // exposure +5
+
+  function squareCrop(src) {
+    const w = src.naturalWidth || src.width, h = src.naturalHeight || src.height;
+    const s = Math.min(w, h);
+    const c = document.createElement("canvas");
+    c.width = s; c.height = s;
+    c.getContext("2d").drawImage(src, (w - s) / 2, (h - s) / 2, s, s, 0, 0, s, s);
+    return c;
+  }
+  function grayField(sqCanvas, w, h) {
+    const t = document.createElement("canvas");
+    t.width = w; t.height = h;
+    const tc = t.getContext("2d");
+    tc.imageSmoothingEnabled = true; tc.imageSmoothingQuality = "high";
+    tc.drawImage(sqCanvas, 0, 0, w, h);
+    const d = tc.getImageData(0, 0, w, h).data;
+    const g = new Float32Array(w * h);
+    for (let i = 0, p = 0; i < d.length; i += 4, p++) {
+      let v = 0.299 * d[i] + 0.587 * d[i + 1] + 0.114 * d[i + 2];
+      v = CF * (v - 128) + 128 + EXP;
+      v = v < 0 ? 0 : v > 255 ? 255 : v;
+      v = 255 * Math.pow(v / 255, IG);
+      g[p] = v < 0 ? 0 : v > 255 ? 255 : v;
+    }
+    return g;
+  }
+  function printTile(sqCanvas) {
+    const N = 384;
+    const g = grayField(sqCanvas, N, N);
+    for (let y = 0; y < N; y++) {
+      for (let x = 0; x < N; x++) {
+        const i = y * N + x, old = g[i], nv = old < 128 ? 0 : 255, e = old - nv;
+        g[i] = nv;
+        if (x + 1 < N) g[i + 1] += e * 7 / 16;
+        if (y + 1 < N) {
+          if (x > 0) g[i + N - 1] += e * 3 / 16;
+          g[i + N] += e * 5 / 16;
+          if (x + 1 < N) g[i + N + 1] += e * 1 / 16;
+        }
+      }
+    }
+    const one = document.createElement("canvas");
+    one.width = N; one.height = N;
+    const oc = one.getContext("2d");
+    const img = oc.createImageData(N, N), bd = img.data;
+    for (let i = 0; i < g.length; i++) {
+      const o = i * 4, on = g[i] < 128;
+      bd[o] = on ? INK[0] : PAP[0];
+      bd[o + 1] = on ? INK[1] : PAP[1];
+      bd[o + 2] = on ? INK[2] : PAP[2];
+      bd[o + 3] = 255;
+    }
+    oc.putImageData(img, 0, 0);
+    const out = document.createElement("canvas");
+    out.width = N * S; out.height = N * S;
+    const c2 = out.getContext("2d");
+    c2.imageSmoothingEnabled = false;
+    c2.drawImage(one, 0, 0, N * S, N * S);
+    return out;
+  }
+  function asciiTile(sqCanvas) {
+    const N = 384, cols = 118, rows = Math.round(cols / 1.7);
+    const g = grayField(sqCanvas, cols, rows);
+    const ramp = "@%#*+=-:. ", L = ramp.length - 1;
+    const out = document.createElement("canvas");
+    out.width = N * S; out.height = N * S;
+    const oc = out.getContext("2d");
+    oc.fillStyle = `rgb(${PAP.join(",")})`;
+    oc.fillRect(0, 0, out.width, out.height);
+    oc.fillStyle = `rgb(${INK.join(",")})`;
+    oc.textBaseline = "top";
+    const fs = N / (cols * 0.6);
+    oc.font = `700 ${fs * S}px "JetBrains Mono", monospace`;
+    const lhpx = (N / rows) * S;
+    for (let y = 0; y < rows; y++) {
+      let line = "";
+      for (let x = 0; x < cols; x++) {
+        const idx = Math.round((g[y * cols + x] / 255) * L);
+        line += ramp[idx];
+      }
+      oc.fillText(line, 0, y * lhpx);
+    }
+    return out;
+  }
+
+  /* ================================================================
+     TEXT PARSING
+  ================================================================ */
+  function parseBody(body) {
+    const out = [];
+    const lines = body.replace(/\s+$/, "").split("\n");
+    for (let raw of lines) {
+      const s = raw.replace(/\s+$/, "");
+      if (!s.trim()) { if (out.length && out[out.length - 1].type !== "divider") out.push({ type: "divider" }); continue; }
+      let m;
+      if ((m = s.match(/^#\s+(.*)$/))) out.push({ type: "head", text: m[1].toUpperCase() });
+      else if ((m = s.match(/^>\s+(.*)$/))) out.push({ type: "center", text: m[1] });
+      else if ((m = s.match(/^\*\s+(.*)$/))) out.push({ type: "bold", text: m[1] });
+      else if ((m = s.match(/^(.{1,22}?)\s*::\s*(.*)$/))) out.push({ type: "leader", k: m[1], v: m[2] });
+      else out.push({ type: "body", text: s });
+    }
+    while (out.length && out[out.length - 1].type === "divider") out.pop();
+    return out;
+  }
+
+  /* ================================================================
+     RECEIPT RENDER
+  ================================================================ */
+  const W = 384, PAD = 26, CW = W - PAD * 2;
+  const mono = (px, w = 400) => `${w} ${px}px "JetBrains Mono", ui-monospace, monospace`;
+  const arch = px => `400 ${px}px "Archivo Black", "JetBrains Mono", sans-serif`;
+
+  // FIGlet "Standard" glyphs for the promo big-token (0-9 A + %) + a banner assembler.
+  const FIG = {
+    "0": ["  ___  ", " / _ \\ ", "| | | |", "| |_| |", " \\___/ "],
+    "1": [" _ ", "/ |", "| |", "| |", "|_|"],
+    "2": [" ____  ", "|___ \\ ", "  __) |", " / __/ ", "|_____|"],
+    "3": [" _____ ", "|___ / ", "  |_ \\ ", " ___) |", "|____/ "],
+    "4": [" _  _   ", "| || |  ", "| || |_ ", "|__   _|", "   |_|  "],
+    "5": [" ____  ", "| ___| ", "|___ \\ ", " ___) |", "|____/ "],
+    "6": ["  __   ", " / /_  ", "| '_ \\ ", "| (_) |", " \\___/ "],
+    "7": [" _____ ", "|___  |", "   / / ", "  / /  ", " /_/   "],
+    "8": ["  ___  ", " ( _ ) ", " / _ \\ ", "| (_) |", " \\___/ "],
+    "9": ["  ___  ", " / _ \\ ", "| (_) |", " \\__, |", "   /_/ "],
+    "A": ["    _    ", "   / \\   ", "  / _ \\  ", " / ___ \\ ", "/_/   \\_\\"],
+    "+": ["       ", "   _   ", " _| |_ ", "|_   _|", "  |_|  "],
+    "%": [" _  __", "(_)/ /", "  / / ", " / /_ ", "/_/(_)"],
+    " ": ["   ", "   ", "   ", "   ", "   "],
+  };
+  function figBanner(text) {
+    const chars = [...String(text).toUpperCase()].map(c => (FIG[c] ? c : " "));
+    return FIG["0"].map((_, r) => chars.map(c => FIG[c][r]).join(" "));
+  }
+
+  // Promo big-token style toggle. false = FIGlet only (original 5-row look);
+  // true = mix in the ~10-row 3D isometric font (receipt-ascii-3d.js) on alternate panels.
+  const PROMO_3D = true;
+
+
+  function buildData(header, blocks) {
+    const seedStr = header + " " + blocks.map(b => b.type + (b.text || b.k || "") + (b.v || "")).join("|") + " " + style;
+    const rnd = mulberry32(hashStr(seedStr));
+    const ri = n => Math.floor(rnd() * n);
+    const digits = n => Array.from({ length: n }, () => ri(10)).join("");
+    const hex = n => Array.from({ length: n }, () => "0123456789ABCDEF"[ri(16)]).join("");
+
+    const dt = new Date();
+    const p2 = n => String(n).padStart(2, "0");
+    const dateStr = `${dt.getFullYear()}-${p2(dt.getMonth() + 1)}-${p2(dt.getDate())}`;
+    const timeStr = `${p2(dt.getHours())}:${p2(dt.getMinutes())}`;
+
+    const NAMES = ["A. NOWAK", "J. KOWALSKI", "M. LEE", "S. PATEL", "R. GARCIA", "K. MÜLLER", "T. OKONKWO", "L. ROSSI"];
+    const contentLines = blocks.filter(b => b.type !== "divider").length;
+    const flat = blocks.map(b => (b.text || "") + (b.k || "") + (b.v || "")).join(" ");
+    const words = flat.trim().split(/\s+/).filter(Boolean).length;
+    const chars = flat.replace(/\s/g, "").length;
+    const total = (chars * 0.13 + rnd() * 6 + 1).toFixed(2);
+
+    let promoCount = chars < 150 ? 3 : chars < 350 ? 2 : 1;
+    const PROMOS = [
+      { k: "NOW", big: String(Math.max(12, words * 7)), l: "IDEAS CHEAPER" },
+      { k: "OVER", big: String(Math.max(1, words)), l: "WORDS SERVED FRESH" },
+      { k: "GOOD SINCE", big: "2016", l: "AND STILL GOING" },
+      { k: "", big: "100%", l: "CERTIFIED HUMAN" },
+      { k: "TODAY ONLY", big: "1", l: "OF A KIND" },
+      { k: "", big: "A+", l: "WOULD READ AGAIN" },
+      { k: "UP TO", big: String(40 + (chars % 360)), l: "POINTS EARNED" },
+    ];
+    for (let i = PROMOS.length - 1; i > 0; i--) { const j = ri(i + 1); [PROMOS[i], PROMOS[j]] = [PROMOS[j], PROMOS[i]]; }
+    const promos = PROMOS.slice(0, promoCount);
+
+    const bars = [];
+    { let x = 0, ink = true; while (x < CW) { const w = 1 + ri(4); bars.push({ w, ink }); ink = !ink; x += w; } }
+
+    return {
+      receiptNo: "#" + digits(4),
+      dateStr, timeStr,
+      servedBy: NAMES[ri(NAMES.length)],
+      authCode: digits(6),
+      cardYear: 2026,
+      itemCount: contentLines,
+      total,
+      cardholder: (header || "GUEST").toUpperCase().slice(0, 22),
+      promos,
+      barcodeNo: digits(13),
+      reg: digits(2), cashier: digits(2), fiscal: hex(24),
+      bars,
+    };
+  }
+
+  function renderReceipt(header, blocks, tile, data) {
+    function draw(ctx, measure) {
+      let y = 0;
+      const ink = `rgb(${INK.join(",")})`;
+      const paper = `rgb(${PAP.join(",")})`;
+      ctx.textBaseline = "alphabetic";
+
+      const line = (x1, yy, x2, dash) => {
+        if (measure) return;
+        ctx.save();
+        ctx.strokeStyle = ink; ctx.lineWidth = 1;
+        ctx.setLineDash(dash ? [2, 3] : []);
+        ctx.beginPath(); ctx.moveTo(x1, yy + 0.5); ctx.lineTo(x2, yy + 0.5); ctx.stroke();
+        ctx.restore();
+      };
+      const rule = (yy, dash = true) => line(PAD, yy, W - PAD, dash);
+
+      const wrap = (str, maxW) => {
+        const words = String(str).split(/\s+/);
+        const lines = []; let cur = "";
+        for (let w of words) {
+          while (ctx.measureText(w).width > maxW && w.length > 1) {
+            let cut = w.length;
+            while (cut > 1 && ctx.measureText(w.slice(0, cut)).width > maxW) cut--;
+            const head = w.slice(0, cut);
+            if (cur) { lines.push(cur); cur = ""; }
+            lines.push(head); w = w.slice(cut);
+          }
+          const test = cur ? cur + " " + w : w;
+          if (ctx.measureText(test).width > maxW && cur) { lines.push(cur); cur = w; }
+          else cur = test;
+        }
+        if (cur) lines.push(cur);
+        return lines.length ? lines : [""];
+      };
+      const para = (str, font, maxW, align) => {
+        ctx.font = font;
+        const size = parseInt(font.match(/(\d+)px/)[1], 10);
+        const lh = Math.round(size * 1.5);
+        const lines = wrap(str, maxW);
+        lines.forEach((ln, i) => {
+          if (!measure) {
+            ctx.fillStyle = ink;
+            const words = ln.split(/ +/);
+            if (align === "justify" && i < lines.length - 1 && words.length > 1) {
+              // spread the extra width between words; last line stays flush-left
+              const textW = words.reduce((s, wd) => s + ctx.measureText(wd).width, 0);
+              const gap = (maxW - textW) / (words.length - 1);
+              ctx.textAlign = "left";
+              let x = PAD;
+              for (const wd of words) { ctx.fillText(wd, x, y + size); x += ctx.measureText(wd).width + gap; }
+            } else {
+              ctx.textAlign = align === "center" ? "center" : "left";
+              ctx.fillText(ln, align === "center" ? W / 2 : PAD, y + size);
+            }
+          }
+          y += lh;
+        });
+      };
+      const leader = (k, v, opt = {}) => {
+        const size = opt.size || 14, weight = opt.weight || 400;
+        const lh = Math.round(size * 1.6);
+        ctx.font = mono(size, weight);
+        const kw = ctx.measureText(k).width;
+        const vw = ctx.measureText(v).width;
+        if (!measure) {
+          ctx.fillStyle = ink;
+          ctx.textAlign = "left"; ctx.fillText(k, PAD, y + size);
+          ctx.textAlign = "right"; ctx.fillText(v, W - PAD, y + size);
+          const ds = PAD + kw + 5, de = W - PAD - vw - 5;
+          if (de > ds) {
+            ctx.font = mono(size, 400);
+            const dw = ctx.measureText(".").width || size * 0.5;
+            const n = Math.floor((de - ds) / dw);
+            if (n > 0) { ctx.textAlign = "left"; ctx.fillText(".".repeat(n), ds, y + size); }
+          }
+        }
+        y += lh;
+      };
+      const barStrip = (list, h, yy) => {
+        if (measure) return;
+        let x = PAD;
+        ctx.fillStyle = ink;
+        for (const b of list) { if (b.ink) ctx.fillRect(x, yy, b.w, h); x += b.w; }
+      };
+
+      /* ---- top edge ---- */
+      y = 18;
+
+      /* ---- logo (Figma node 1:345) ---- */
+      const lw = 132, lh = Math.round(lw / LOGO_ASPECT);
+      if (!measure && logoImg.complete && logoImg.naturalWidth) {
+        ctx.drawImage(logoImg, (W - lw) / 2, y, lw, lh);
+      }
+      y += lh + 10;
+      rule(y, true); y += 14;
+
+      /* ---- header (headline field) ---- */
+      if (header) {
+        para(header.toLowerCase(), mono(17, 700), CW, "center");
+        y += 10;
+      }
+
+      /* ---- photo ---- */
+      if (tile) {
+        if (!measure) ctx.drawImage(tile, PAD, y, CW, CW);
+        y += CW + 14;
+        rule(y, true); y += 14;
+      }
+
+      /* ---- meta ---- */
+      leader("RECEIPT", data.receiptNo, { size: 12 });
+      leader("DATE", data.dateStr + "  " + data.timeStr, { size: 12 });
+      y += 6; rule(y, true); y += 14;
+
+      /* ---- body blocks ---- */
+      let prev = null;
+      for (const b of blocks) {
+        if (b.type === "divider") { y += 5; rule(y, true); y += 13; }
+        else if (b.type === "head") {
+          if (prev !== "divider") { y += 12; rule(y, true); }
+          y += 12;
+          para(b.text, mono(11, 700), CW, "center");
+          y += 3;
+          rule(y, true); y += 12;
+        }
+        else if (b.type === "center") para(b.text, mono(13, 400), CW, "center");
+        else if (b.type === "bold") para(b.text, mono(13, 600), CW, "left");
+        else if (b.type === "leader") leader(b.k, b.v, { size: 12 });
+        else para(b.text, mono(13, 400), CW, "justify");
+        prev = b.type;
+      }
+
+      /* ---- totals ---- */
+      y += 8; rule(y, true); y += 14;
+      leader("ITEM COUNT", String(data.itemCount), { size: 12 });
+      leader("SUBTOTAL", "$" + data.total, { size: 12 });
+      leader("TOTAL", "$" + data.total, { size: 14, weight: 700 });
+      y += 4;
+      leader("CARD", "**** **** **** " + data.cardYear, { size: 11 });
+      leader("AUTH CODE", data.authCode, { size: 11 });
+      leader("CARDHOLDER", data.cardholder, { size: 11 });
+      y += 16;
+
+      /* ---- promo panels: big token as ASCII, framed by * rows.
+             PROMO_3D on -> the solid (black) panels use the 3D isometric font,
+             the outlined panels stay FIGlet -> some ads as-is, some in the new style. ---- */
+      const has3D = PROMO_3D && typeof ReceiptAscii3D !== "undefined";
+      data.promos.forEach((pm, i) => {
+        const solid = i % 2 === 0;
+        const fg = solid ? paper : ink;
+        const use3d = has3D && solid;
+        const P = 16, inner = CW - P * 2;
+
+        const bRows = use3d ? ReceiptAscii3D.banner(pm.big, { depth: 2 }) : figBanner(pm.big);
+        const bCols = Math.max(...bRows.map(r => r.length));
+        const bPx = Math.max(6, Math.min(use3d ? 12 : 13, inner / (bCols * 0.6)));
+        const bLH = Math.round(bPx * (use3d ? 0.98 : 1.04));
+
+        ctx.font = mono(11, 700);
+        const stars = "*".repeat(Math.max(6, Math.floor(inner / (ctx.measureText("*").width || 6))));
+        const kH = pm.k ? 18 : 0;
+        ctx.font = mono(10, 700);
+        const lLines = wrap(pm.l, inner);
+        const lLH = 16;
+
+        // 3D output is ~10 rows vs FIGlet's 5 — panel height follows the actual row count
+        const panelH = P + 20 + kH + bRows.length * bLH + 14 + lLines.length * lLH + 12 + P;
+
+        if (!measure) {
+          if (solid) { ctx.fillStyle = ink; ctx.fillRect(PAD, y, CW, panelH); }
+          let py = y + P;
+          ctx.fillStyle = fg; ctx.textAlign = "center";
+          ctx.font = mono(11, 700); ctx.fillText(stars, W / 2, py + 12); py += 20;
+          if (pm.k) { ctx.font = mono(10, 700); ctx.fillText(pm.k.toUpperCase(), W / 2, py + 11); py += kH; }
+          ctx.font = mono(bPx, 700);
+          // photocopier wobble is CSS-only (DOM <pre>); on canvas fake it with a tiny per-row x-jitter
+          const jr = use3d ? mulberry32(hashStr(pm.big + "~" + i)) : null;
+          for (const r of bRows) {
+            ctx.fillText(r, W / 2 + (jr ? (jr() - 0.5) * 2.4 : 0), py + bPx);
+            py += bLH;
+          }
+          py += 14;
+          ctx.font = mono(10, 700);
+          for (const ln of lLines) { ctx.fillText(ln.toUpperCase(), W / 2, py + 10); py += lLH; }
+          py += 4;
+          ctx.font = mono(11, 700); ctx.fillText(stars, W / 2, py + 12);
+        }
+        y += panelH + 12;
+      });
+
+      /* ---- thank you ---- */
+      y += 2;
+      para("☺︎ thank you for visiting ☺︎", mono(18, 600), CW, "center");
+      y += 12;
+
+      /* ---- barcode ---- */
+      barStrip(data.bars, 42, y); y += 42 + 7;
+      para(data.barcodeNo.replace(/(\d{4})(\d{5})(\d{4})/, "$1 $2 $3"), mono(10, 400), CW, "center");
+      y += 8;
+
+      /* ---- fiscal footer ---- */
+      y += 8; rule(y, true); y += 12;
+      const foot = [
+        "* * *   NON-FISCAL DOCUMENT   * * *",
+        `REG ${data.reg}   CASHIER ${data.cashier}   ${data.timeStr}`,
+        `${data.dateStr}`,
+        data.fiscal,
+        "receipt-me.app",
+      ];
+      for (const f of foot) para(f, mono(10, 400), CW, "center");
+      y += 16;
+
+      return y;
+    }
+
+    const mCanvas = document.createElement("canvas");
+    mCanvas.width = 4; mCanvas.height = 4;
+    const totalH = Math.ceil(draw(mCanvas.getContext("2d"), true));
+
+    const cv = document.createElement("canvas");
+    cv.width = W * S; cv.height = totalH * S;
+    const ctx = cv.getContext("2d");
+    ctx.scale(S, S);
+    ctx.fillStyle = `rgb(${PAP.join(",")})`;
+    ctx.fillRect(0, 0, W, totalH);
+    draw(ctx, false);
+
+    try {
+      const id = ctx.getImageData(0, 0, cv.width, cv.height);
+      const d = id.data;
+      for (let i = 0; i < d.length; i += 4) {
+        const n = (Math.random() - 0.5) * 11;
+        d[i] += n; d[i + 1] += n; d[i + 2] += n;
+      }
+      ctx.putImageData(id, 0, 0);
+    } catch (e) { /* ignore */ }
+
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.globalCompositeOperation = "destination-out";
+    for (let x = 6 * S; x < cv.width; x += 13 * S) {
+      ctx.beginPath(); ctx.arc(x, 0, 5.5 * S, 0, Math.PI * 2); ctx.fill();
+    }
+    ctx.beginPath();
+    ctx.moveTo(0, cv.height);
+    let tx = 0, up = true;
+    while (tx < cv.width) {
+      tx += (7 + Math.random() * 9) * S;
+      ctx.lineTo(tx, cv.height - (up ? (3 + Math.random() * 9) * S : 0));
+      up = !up;
+    }
+    ctx.lineTo(cv.width, cv.height);
+    ctx.closePath(); ctx.fill();
+    ctx.globalCompositeOperation = "source-over";
+
+    return cv;
+  }
+
+  /* ================================================================
+     FLOW
+  ================================================================ */
+  async function assetsReady() {
+    try {
+      await Promise.all([
+        document.fonts.load('400 26px "Archivo Black"'),
+        document.fonts.load('700 24px "JetBrains Mono"'),
+        document.fonts.load('400 15px "JetBrains Mono"'),
+        logoReady,
+      ]);
+      await document.fonts.ready;
+    } catch (e) { /* use whatever is available */ }
+  }
+
+  els.form.addEventListener("submit", async e => {
+    e.preventDefault();
+    if (els.go.disabled) return;
+
+    const header = els.headline.value.trim();
+    const blocks = parseBody(els.text.value.replace(/\r/g, ""));
+
+    show(els.printing);
+    els.feed.classList.remove("run");
+    els.feed.innerHTML = "";
+
+    await assetsReady();
+    await new Promise(r => setTimeout(r, 260));
+
+    let tile = null;
+    if (photoSource) {
+      const sq = squareCrop(photoSource);
+      tile = style === "ascii" ? asciiTile(sq) : printTile(sq);
+    }
+    const data = buildData(header, blocks);
+    outCanvas = renderReceipt(header, blocks, tile, data);
+
+    const view = outCanvas.cloneNode(false);
+    view.getContext("2d").drawImage(outCanvas, 0, 0);
+    els.feed.appendChild(view);
+    void els.feed.offsetWidth;
+    els.feed.classList.add("run");
+
+    const wait = matchMedia("(prefers-reduced-motion: reduce)").matches ? 300 : 2550;
+    setTimeout(() => {
+      els.stage.innerHTML = "";
+      els.stage.appendChild(outCanvas);
+      show(els.result);
+    }, wait);
+  });
+
+  els.download.addEventListener("click", () => {
+    if (!outCanvas) return;
+    outCanvas.toBlob(blob => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url; a.download = "receipt-me.png";
+      document.body.appendChild(a); a.click(); a.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 1000);
+    }, "image/png");
+  });
+
+  els.again.addEventListener("click", () => show(els.start));
+  document.querySelectorAll(".logo-link").forEach(el => el.addEventListener("click", () => show(els.start)));
+})();
+</script>
+</body>
+</html>

@@ -1,0 +1,1032 @@
+<meta charset="utf-8" />
+<title>Receipt Tape Dynamics</title>
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link
+  rel="stylesheet"
+  href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500&display=swap"
+/>
+
+<style>
+  /* light palette is the bare :root; dark only redefines tokens */
+  :root {
+    --sweep-1: #e9e5da;
+    --sweep-2: #d5d0c1;
+    --ink: #2c2b26;
+    --muted: #6d685c;
+    --accent: #a83f2e;
+    --hairline: rgba(44, 43, 38, 0.16);
+    --vignette: rgba(24, 20, 12, 0.16);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --sweep-1: #201e1c;
+      --sweep-2: #100f0e;
+      --ink: #ece7db;
+      --muted: #8f887a;
+      --accent: #d4694f;
+      --hairline: rgba(236, 231, 219, 0.15);
+      --vignette: rgba(0, 0, 0, 0.34);
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --sweep-1: #201e1c;
+    --sweep-2: #100f0e;
+    --ink: #ece7db;
+    --muted: #8f887a;
+    --accent: #d4694f;
+    --hairline: rgba(236, 231, 219, 0.15);
+    --vignette: rgba(0, 0, 0, 0.34);
+    color-scheme: dark;
+  }
+
+  * {
+    box-sizing: border-box;
+  }
+  html,
+  body {
+    margin: 0;
+    height: 100%;
+    overflow: hidden;
+    background: var(--sweep-2);
+    color: var(--ink);
+    font-family: "IBM Plex Sans", ui-sans-serif, system-ui, sans-serif;
+  }
+  #stage {
+    position: fixed;
+    inset: 0;
+  }
+  #stage canvas {
+    display: block;
+    width: 100%;
+    height: 100%;
+    touch-action: none;
+  }
+  #stage canvas:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: -4px;
+  }
+
+  .vignette {
+    position: fixed;
+    inset: 0;
+    pointer-events: none;
+    z-index: 1;
+    background: radial-gradient(
+      130% 105% at 50% 32%,
+      transparent 38%,
+      var(--vignette) 100%
+    );
+  }
+
+  .chrome {
+    position: fixed;
+    pointer-events: none;
+    z-index: 2;
+  }
+
+  .mark {
+    top: max(20px, env(safe-area-inset-top));
+    left: max(22px, env(safe-area-inset-left));
+  }
+  .mark b {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-weight: 600;
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+  }
+  .mark b i {
+    font-style: normal;
+    color: var(--accent);
+  }
+  .mark hr {
+    border: 0;
+    height: 1px;
+    background: var(--hairline);
+    margin: 8px 0 6px;
+  }
+  .mark span {
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10.5px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .status {
+    bottom: max(18px, env(safe-area-inset-bottom));
+    left: max(22px, env(safe-area-inset-left));
+    font-size: 12px;
+    color: var(--muted);
+    display: flex;
+    align-items: baseline;
+    gap: 10px;
+  }
+  .status .dot {
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    background: var(--accent);
+    align-self: center;
+  }
+  .status .dot.printing {
+    animation: blink 1.15s steps(1, end) infinite;
+  }
+  .status var {
+    font-style: normal;
+    color: var(--ink);
+    font-variant-numeric: tabular-nums;
+  }
+  @keyframes blink {
+    50% {
+      opacity: 0.25;
+    }
+  }
+
+  .hint {
+    bottom: max(18px, env(safe-area-inset-bottom));
+    right: max(22px, env(safe-area-inset-right));
+    font-family: "IBM Plex Mono", ui-monospace, monospace;
+    font-size: 10px;
+    letter-spacing: 0.16em;
+    text-transform: uppercase;
+    color: var(--muted);
+  }
+
+  .sr {
+    position: absolute;
+    width: 1px;
+    height: 1px;
+    overflow: hidden;
+    clip: rect(0 0 0 0);
+    white-space: nowrap;
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .status .dot.printing {
+      animation: none;
+    }
+  }
+  @media (max-width: 540px) {
+    .hint {
+      display: none;
+    }
+  }
+</style>
+
+<main id="stage">
+  <canvas
+    id="c"
+    tabindex="0"
+    aria-label="Three-dimensional simulation of a thermal receipt printing and folding into a pile"
+  ></canvas>
+</main>
+<div class="vignette"></div>
+
+<div class="chrome mark" aria-hidden="true">
+  <b>Receipt<i>me</i></b>
+  <hr />
+  <span>Thermal tape &middot; fold study</span>
+</div>
+
+<div class="chrome status" role="status" aria-live="off">
+  <span class="dot printing" id="dot"></span>
+  <span id="phase">warming up</span>
+  <span aria-hidden="true">&mdash;</span>
+  <span><var id="len">0.00</var> m fed</span>
+</div>
+
+<div class="chrome hint" aria-hidden="true">Drag orbit &middot; Scroll zoom</div>
+
+<p class="sr">
+  A decorative real-time animation: a thermal printer feeds a long paper
+  receipt that buckles under gravity and settles into an accordion-folded pile
+  on the floor while the camera slowly orbits.
+</p>
+
+<script>
+  /* __THREEJS__ */
+</script>
+
+<script>
+  (() => {
+    "use strict";
+    const THREE = window.THREE;
+    const canvas = document.getElementById("c");
+    const reduceMotion = window.matchMedia(
+      "(prefers-reduced-motion: reduce)"
+    ).matches;
+    const small = Math.min(window.innerWidth, window.innerHeight) < 620;
+
+    /* ------------------------------------------------------------- theme */
+    const root = document.documentElement;
+    function themeIsDark() {
+      const t = root.getAttribute("data-theme");
+      if (t === "dark") return true;
+      if (t === "light") return false;
+      return window.matchMedia("(prefers-color-scheme: dark)").matches;
+    }
+
+    /* ---------------------------------------------------------- renderer */
+    const renderer = new THREE.WebGLRenderer({
+      canvas,
+      antialias: true,
+      powerPreference: "high-performance",
+    });
+    renderer.setPixelRatio(Math.min(window.devicePixelRatio || 1, small ? 1.75 : 2));
+    renderer.shadowMap.enabled = true;
+    renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(40, 1, 0.1, 100);
+
+    /* --------------------------------------------------------- backdrop */
+    function gradientTexture(top, bottom) {
+      const cv = document.createElement("canvas");
+      cv.width = 4;
+      cv.height = 256;
+      const g = cv.getContext("2d");
+      const grd = g.createLinearGradient(0, 0, 0, 256);
+      grd.addColorStop(0, top);
+      grd.addColorStop(1, bottom);
+      g.fillStyle = grd;
+      g.fillRect(0, 0, 4, 256);
+      const t = new THREE.CanvasTexture(cv);
+      t.colorSpace = THREE.SRGBColorSpace;
+      return t;
+    }
+
+    const floorMat = new THREE.MeshStandardMaterial({ roughness: 0.97, metalness: 0 });
+    const bodyMat = new THREE.MeshStandardMaterial({
+      color: 0x2a2a2f,
+      roughness: 0.55,
+      metalness: 0.15,
+    });
+    const floor = new THREE.Mesh(new THREE.PlaneGeometry(80, 80), floorMat);
+    floor.rotation.x = -Math.PI / 2;
+    floor.receiveShadow = true;
+    scene.add(floor);
+
+    /* ----------------------------------------------------------- lights */
+    const hemi = new THREE.HemisphereLight(0xffffff, 0x000000, 1);
+    scene.add(hemi);
+
+    const key = new THREE.DirectionalLight(0xffffff, 1);
+    key.position.set(-3.0, 9.5, 4.0);
+    key.castShadow = true;
+    key.shadow.mapSize.set(small ? 1024 : 2048, small ? 1024 : 2048);
+    key.shadow.camera.near = 1;
+    key.shadow.camera.far = 26;
+    key.shadow.camera.left = -3.6;
+    key.shadow.camera.right = 3.6;
+    key.shadow.camera.top = 6.5;
+    key.shadow.camera.bottom = -1.2;
+    key.shadow.bias = -0.0013;
+    key.shadow.radius = 6;
+    key.target.position.set(0, 0.9, 0);
+    scene.add(key);
+    scene.add(key.target);
+
+    const rim = new THREE.DirectionalLight(0xcfe0ff, 0.5);
+    rim.position.set(5.5, 3.5, -6);
+    scene.add(rim);
+
+    // soft frontal fill so the vertical drop of tape doesn't read as black
+    const fill = new THREE.DirectionalLight(0xffffff, 0.5);
+    fill.position.set(1.6, 2.4, 8);
+    scene.add(fill);
+
+    /* --------------------------------------------------- theme applied */
+    function applyTheme() {
+      const dark = themeIsDark();
+      renderer.toneMappingExposure = dark ? 1.05 : 1.05;
+      if (scene.background) scene.background.dispose();
+      scene.background = gradientTexture(
+        dark ? "#2b2622" : "#edeae0",
+        dark ? "#100e0c" : "#c9c3b3"
+      );
+      floorMat.color.set(dark ? 0x2b2622 : 0xc6c0b0);
+      bodyMat.color.set(dark ? 0x35343b : 0x2a2a2f);
+      hemi.color.set(dark ? 0x5a5348 : 0xfff6e6);
+      hemi.groundColor.set(dark ? 0x1a1714 : 0xc9bfa8);
+      hemi.intensity = dark ? 1.0 : 0.9;
+      key.color.set(dark ? 0xffeeda : 0xfff3e0);
+      key.intensity = dark ? 3.2 : 3.0;
+      rim.intensity = dark ? 1.0 : 0.45;
+      fill.color.set(dark ? 0xffe7d0 : 0xffffff);
+      fill.intensity = dark ? 0.7 : 0.55;
+      scene.fog = new THREE.Fog(dark ? 0x140f0c : 0xc9c3b3, 18, 50);
+    }
+    applyTheme();
+    window
+      .matchMedia("(prefers-color-scheme: dark)")
+      .addEventListener?.("change", applyTheme);
+    new MutationObserver(applyTheme).observe(root, {
+      attributes: true,
+      attributeFilter: ["data-theme"],
+    });
+
+    /* ----------------------------------------------------------- printer */
+    const SLOT_Y = 2.55;
+    const printer = new THREE.Group();
+
+    const body = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.0, 1.15), bodyMat);
+    body.position.set(0, SLOT_Y + 0.52, 0);
+    body.castShadow = true;
+    body.receiveShadow = true;
+    printer.add(body);
+
+    const lip = new THREE.Mesh(new THREE.BoxGeometry(1.72, 0.36, 0.52), bodyMat);
+    lip.position.set(0, SLOT_Y + 0.14, 0.4);
+    lip.rotation.x = -0.5;
+    lip.castShadow = true;
+    printer.add(lip);
+
+    const slot = new THREE.Mesh(
+      new THREE.BoxGeometry(0.66, 0.06, 0.16),
+      new THREE.MeshStandardMaterial({ color: 0x080808, roughness: 0.9 })
+    );
+    slot.position.set(0, SLOT_Y, 0.14);
+    printer.add(slot);
+
+    const ledMat = new THREE.MeshStandardMaterial({
+      color: 0x111111,
+      emissive: new THREE.Color(0xff5a3c),
+      emissiveIntensity: 1.4,
+    });
+    const led = new THREE.Mesh(new THREE.SphereGeometry(0.035, 16, 12), ledMat);
+    led.position.set(-0.66, SLOT_Y + 0.66, 0.58);
+    printer.add(led);
+
+    scene.add(printer);
+
+    /* -------------------------------------------------- receipt texture */
+    function drawReceipt() {
+      const cv = document.createElement("canvas");
+      cv.width = 512;
+      cv.height = 2048;
+      const g = cv.getContext("2d");
+      const W = cv.width;
+
+      g.fillStyle = "#f3efe5";
+      g.fillRect(0, 0, W, cv.height);
+      g.globalAlpha = 0.045;
+      for (let i = 0; i < 2400; i++) {
+        g.fillStyle = Math.random() > 0.5 ? "#000" : "#988";
+        g.fillRect(Math.random() * W, Math.random() * cv.height, 1.6, 1.1);
+      }
+      g.globalAlpha = 1;
+
+      const ink = "#37342b";
+      const pad = 52;
+      g.fillStyle = ink;
+      g.strokeStyle = ink;
+      g.textBaseline = "top";
+
+      let y = 34;
+      const dash = (a) => {
+        g.globalAlpha = 0.55;
+        g.setLineDash(a);
+        g.lineWidth = 2;
+        g.beginPath();
+        g.moveTo(pad, y + 6);
+        g.lineTo(W - pad, y + 6);
+        g.stroke();
+        g.setLineDash([]);
+        g.globalAlpha = 1;
+        y += 24;
+      };
+      const center = (t, f) => {
+        g.font = f;
+        g.textAlign = "center";
+        g.fillText(t, W / 2, y);
+      };
+      const row = (l, r) => {
+        g.font = "26px 'IBM Plex Mono', ui-monospace, monospace";
+        g.textAlign = "left";
+        g.fillText(l, pad, y);
+        g.textAlign = "right";
+        g.fillText(r, W - pad, y);
+        y += 34;
+      };
+
+      dash([5, 7]); // perforation between repeats
+
+      g.fillRect(W / 2 - 58, y, 116, 9);
+      g.fillRect(W / 2 - 58, y + 15, 116, 9);
+      g.fillRect(W / 2 - 58, y + 30, 116, 9);
+      y += 58;
+      center("R E C E I P T M E", "bold 40px 'IBM Plex Mono', monospace");
+      y += 52;
+      center("128 Thermal Row", "24px 'IBM Plex Mono', monospace");
+      y += 30;
+      center("Printfield, CA 90210", "24px 'IBM Plex Mono', monospace");
+      y += 30;
+      center("(555) 010 - 0110", "24px 'IBM Plex Mono', monospace");
+      y += 46;
+      dash([5, 6]);
+      row("ORDER", "#A2F91");
+      row("2026-08-29", "14:07");
+      dash([5, 6]);
+      [
+        ["Flat White", "4.20"],
+        ["Sourdough Slice", "3.10"],
+        ["Almond Croissant", "3.75"],
+        ["Cold Brew 16oz", "4.50"],
+        ["Oat Milk", "0.80"],
+        ["Sea Salt Cookie", "2.95"],
+        ["House Blend 12oz", "12.00"],
+        ["Bottled Still", "1.90"],
+      ].forEach(([n, p]) => row(n, p));
+      dash([5, 6]);
+      row("SUBTOTAL", "33.20");
+      row("TAX 8.5%", "2.82");
+      g.font = "bold 30px 'IBM Plex Mono', monospace";
+      g.textAlign = "left";
+      g.fillText("TOTAL", pad, y);
+      g.textAlign = "right";
+      g.fillText("$36.02", W - pad, y);
+      y += 46;
+      dash([5, 6]);
+      row("VISA ****", "4417");
+      row("AUTH", "APPROVED");
+      y += 14;
+      dash([5, 6]);
+
+      y += 10;
+      let x = pad;
+      while (x < W - pad) {
+        const w = 2 + ((Math.random() * 6) | 0);
+        g.fillRect(x, y, w, 82);
+        x += w + 2 + ((Math.random() * 5) | 0);
+      }
+      y += 100;
+      center("A2F91  0128  2026", "20px 'IBM Plex Mono', monospace");
+      y += 46;
+      center("THANK YOU FOR YOUR VISIT", "bold 24px 'IBM Plex Mono', monospace");
+      y += 40;
+      center("Keep this receipt for your records.", "18px 'IBM Plex Mono', monospace");
+      y += 26;
+      center("No refunds after 30 days.", "18px 'IBM Plex Mono', monospace");
+
+      return cv;
+    }
+    function makeReceiptTexture() {
+      const t = new THREE.CanvasTexture(drawReceipt());
+      t.wrapS = THREE.ClampToEdgeWrapping;
+      t.wrapT = THREE.RepeatWrapping;
+      t.anisotropy = renderer.capabilities.getMaxAnisotropy();
+      t.colorSpace = THREE.SRGBColorSpace;
+      t.flipY = false;
+      return t;
+    }
+    let receiptTex = makeReceiptTexture();
+
+    /* ==================================================================
+       VERLET STRIP  —  the receipt tape
+       ================================================================== */
+    const PERF = small || reduceMotion;
+    const SEG = 0.085; // spacing between particles
+    const HALF_W = 0.23; // half tape width
+    const THICK = 0.018; // paper half-thickness
+    const MAX = PERF ? 210 : 264; // particle cap
+    const PIN = 3; // particles clamped in the slot guide
+    const ACC_G = -9.0; // gravity acceleration
+    const H = 1 / 120; // fixed physics timestep
+    const K_STRUCT = PERF ? 11 : 14; // structural solve iterations
+    const K2 = 0.14; // bend stiffness (i, i+2) — keeps straight runs between creases
+    const K3 = 0.05; // bend stiffness (i, i+3)
+    const CURL = 1.0; // 1 => no built-in curl, so it folds rather than coils
+    const DAMP = 0.984;
+    const FRICTION = 0.95; // floor friction — each fold grips where it lands
+    const RC = 0.078; // self-collision radius — folds ride up, giving the pile height
+    const CELL = 0.16; // spatial-hash cell size (>= 2*RC)
+    const FEED = 0.72; // tape units per second
+    const REPEAT_WORLD = 3.0; // one printed receipt every N units
+
+    const slotPos = new THREE.Vector3(0, SLOT_Y - 0.03, 0.16);
+
+    const px = new Float32Array(MAX),
+      py = new Float32Array(MAX),
+      pz = new Float32Array(MAX);
+    const ox = new Float32Array(MAX),
+      oy = new Float32Array(MAX),
+      oz = new Float32Array(MAX);
+    const pinned = new Uint8Array(MAX);
+    let count = 0;
+    let fedRemainder = 0;
+    let totalLen = 0;
+
+    const guideY = (k) => slotPos.y - k * SEG;
+
+    function setP(i, X, Y, Z) {
+      px[i] = ox[i] = X;
+      py[i] = oy[i] = Y;
+      pz[i] = oz[i] = Z;
+    }
+    function repin() {
+      for (let i = 0; i < count; i++) pinned[i] = 0;
+      for (let k = 0; k < PIN && k < count; k++) {
+        const i = count - 1 - k;
+        pinned[i] = 1;
+        setP(i, slotPos.x, guideY(k), slotPos.z);
+      }
+    }
+    function resetTape() {
+      count = 0;
+      fedRemainder = 0;
+      totalLen = 0;
+      for (let k = 0; k < PIN + 2; k++) {
+        setP(k, slotPos.x + (Math.random() - 0.5) * 0.004, guideY(PIN + 1 - k), slotPos.z);
+        count++;
+      }
+      repin();
+    }
+    function feedOne() {
+      if (count >= MAX) return;
+      const i = count++;
+      setP(
+        i,
+        slotPos.x + (Math.random() - 0.5) * 0.012,
+        slotPos.y,
+        slotPos.z + (Math.random() - 0.5) * 0.012
+      );
+      repin();
+      totalLen += SEG;
+    }
+
+    function satisfy(a, b, rest, stiff) {
+      let dx = px[b] - px[a],
+        dy = py[b] - py[a],
+        dz = pz[b] - pz[a];
+      const d = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1e-6;
+      const wa = pinned[a] ? 0 : 1,
+        wb = pinned[b] ? 0 : 1;
+      const wsum = wa + wb;
+      if (!wsum) return;
+      const diff = ((d - rest) / d) * stiff;
+      dx *= diff;
+      dy *= diff;
+      dz *= diff;
+      const fa = wa / wsum,
+        fb = wb / wsum;
+      px[a] += dx * fa;
+      py[a] += dy * fa;
+      pz[a] += dz * fa;
+      px[b] -= dx * fb;
+      py[b] -= dy * fb;
+      pz[b] -= dz * fb;
+    }
+    function solveConstraints() {
+      for (let it = 0; it < K_STRUCT; it++) {
+        for (let i = 0; i < count - 1; i++) satisfy(i, i + 1, SEG, 1);
+        for (let i = 0; i < count - 2; i++) satisfy(i, i + 2, 2 * SEG * CURL, K2);
+        for (let i = 0; i < count - 3; i++) satisfy(i, i + 3, 3 * SEG * CURL, K3);
+      }
+    }
+
+    const grid = new Map();
+    const hash = (a, b, c) =>
+      ((a * 73856093) ^ (b * 19349663) ^ (c * 83492791)) | 0;
+    function selfCollide() {
+      grid.clear();
+      for (let i = 0; i < count; i++) {
+        const k = hash(
+          Math.floor(px[i] / CELL),
+          Math.floor(py[i] / CELL),
+          Math.floor(pz[i] / CELL)
+        );
+        let arr = grid.get(k);
+        if (!arr) grid.set(k, (arr = []));
+        arr.push(i);
+      }
+      const R2 = 2 * RC,
+        min2 = R2 * R2;
+      for (let i = 0; i < count; i++) {
+        const bx = Math.floor(px[i] / CELL),
+          by = Math.floor(py[i] / CELL),
+          bz = Math.floor(pz[i] / CELL);
+        for (let gx = -1; gx <= 1; gx++)
+          for (let gy = -1; gy <= 1; gy++)
+            for (let gz = -1; gz <= 1; gz++) {
+              const arr = grid.get(hash(bx + gx, by + gy, bz + gz));
+              if (!arr) continue;
+              for (let n = 0; n < arr.length; n++) {
+                const j = arr[n];
+                if (j <= i + 3) continue;
+                let dx = px[j] - px[i],
+                  dy = py[j] - py[i],
+                  dz = pz[j] - pz[i];
+                const dd = dx * dx + dy * dy + dz * dz;
+                if (dd >= min2 || dd < 1e-9) continue;
+                const d = Math.sqrt(dd);
+                const corr = (R2 - d) / d;
+                const wi = pinned[i] ? 0 : 1,
+                  wj = pinned[j] ? 0 : 1,
+                  s = wi + wj;
+                if (!s) continue;
+                const ci = (corr * wi) / s,
+                  cj = (corr * wj) / s;
+                px[i] -= dx * ci;
+                py[i] -= dy * ci;
+                pz[i] -= dz * ci;
+                px[j] += dx * cj;
+                py[j] += dy * cj;
+                pz[j] += dz * cj;
+              }
+            }
+      }
+    }
+
+    let airPhase = Math.random() * 40;
+    function step() {
+      fedRemainder += FEED * H;
+      while (fedRemainder >= SEG && count < MAX) {
+        fedRemainder -= SEG;
+        feedOne();
+      }
+
+      // a small symmetric sideways wobble on the airborne span just seeds the
+      // buckling direction; the back-and-forth accordion then emerges on its own
+      // from the tape being fed into the pile faster than it can spread
+      airPhase += H;
+      const seedZ =
+        0.22 * Math.sin(airPhase * 0.8) + 0.13 * Math.sin(airPhase * 1.9 + 0.7);
+      const hh = H * H;
+      const g = ACC_G * hh;
+      const PLANE = 1.2; // below this height folds are squeezed toward x = 0
+      for (let i = 0; i < count; i++) {
+        if (pinned[i]) continue;
+        let vx = (px[i] - ox[i]) * DAMP;
+        let vy = (py[i] - oy[i]) * DAMP;
+        let vz = (pz[i] - oz[i]) * DAMP;
+        ox[i] = px[i];
+        oy[i] = py[i];
+        oz[i] = pz[i];
+
+        if (py[i] < PLANE) {
+          vx *= 0.52;
+          px[i] += -px[i] * 0.015;
+          pz[i] += -pz[i] * 0.0025; // keep the heap from trailing away
+        }
+        if (py[i] < 0.4) vy *= 0.9; // settle, don't bounce
+        const airborne = py[i] > THICK + 0.05 && py[i] < 1.1 ? 1 : 0;
+        px[i] += vx;
+        py[i] += vy + g;
+        pz[i] += vz + seedZ * hh * airborne;
+      }
+
+      solveConstraints();
+      selfCollide();
+
+      for (let i = 0; i < count; i++) {
+        if (pinned[i]) continue;
+        if (py[i] < THICK) {
+          py[i] = THICK;
+          px[i] -= (px[i] - ox[i]) * FRICTION;
+          pz[i] -= (pz[i] - oz[i]) * FRICTION;
+          oy[i] = py[i];
+        }
+      }
+    }
+
+    /* --------------------------------------------------------- ribbon */
+    const posAttr = new THREE.BufferAttribute(new Float32Array(MAX * 2 * 3), 3);
+    const nrmAttr = new THREE.BufferAttribute(new Float32Array(MAX * 2 * 3), 3);
+    const uvAttr = new THREE.BufferAttribute(new Float32Array(MAX * 2 * 2), 2);
+    posAttr.setUsage(THREE.DynamicDrawUsage);
+    nrmAttr.setUsage(THREE.DynamicDrawUsage);
+    uvAttr.setUsage(THREE.DynamicDrawUsage);
+
+    const idx = new Uint16Array((MAX - 1) * 6);
+    for (let i = 0; i < MAX - 1; i++) {
+      const a = i * 2;
+      idx.set([a, a + 1, a + 2, a + 1, a + 3, a + 2], i * 6);
+    }
+    const ribGeo = new THREE.BufferGeometry();
+    ribGeo.setAttribute("position", posAttr);
+    ribGeo.setAttribute("normal", nrmAttr);
+    ribGeo.setAttribute("uv", uvAttr);
+    ribGeo.setIndex(new THREE.BufferAttribute(idx, 1));
+    ribGeo.boundingSphere = new THREE.Sphere(new THREE.Vector3(0, 1.5, 0), 24);
+
+    const paperMat = new THREE.MeshStandardMaterial({
+      map: receiptTex,
+      color: 0xf3efe6,
+      roughness: 0.82,
+      metalness: 0,
+      side: THREE.DoubleSide,
+    });
+    const ribbon = new THREE.Mesh(ribGeo, paperMat);
+    ribbon.castShadow = true;
+    ribbon.receiveShadow = true;
+    ribbon.frustumCulled = false;
+    scene.add(ribbon);
+
+    if (document.fonts && document.fonts.ready) {
+      document.fonts.ready.then(() => {
+        const t = makeReceiptTexture();
+        paperMat.map = t;
+        paperMat.needsUpdate = true;
+        receiptTex.dispose();
+        receiptTex = t;
+      });
+    }
+
+    const T = new THREE.Vector3();
+    const Tprev = new THREE.Vector3();
+    const N = new THREE.Vector3();
+    const Nflat = new THREE.Vector3();
+    const q = new THREE.Quaternion();
+    const xAxis = new THREE.Vector3(1, 0, 0);
+    const segLen = new Float32Array(MAX);
+
+    // The parallel-transport frame is anchored at the SLOT end (where the tape
+    // orientation is known and steady) and carried DOWN toward the free end, so
+    // twisting in the settled pile never propagates back up the visible column.
+    function updateRibbon() {
+      if (count < 2) return;
+      const pos = posAttr.array,
+        nrm = nrmAttr.array,
+        uv = uvAttr.array;
+
+      let total = 0;
+      for (let i = 0; i < count - 1; i++) {
+        segLen[i] = Math.hypot(
+          px[i + 1] - px[i],
+          py[i + 1] - py[i],
+          pz[i + 1] - pz[i]
+        );
+        total += segLen[i];
+      }
+
+      // anchor frame at the last particle (slot)
+      Tprev.set(
+        px[count - 1] - px[count - 2],
+        py[count - 1] - py[count - 2],
+        pz[count - 1] - pz[count - 2]
+      );
+      if (Tprev.lengthSq() < 1e-10) Tprev.set(0, 1, 0);
+      Tprev.normalize();
+      // width axis ~ -X so the printed face (T x N) points toward +Z, i.e. out
+      // of the printer front toward the viewer
+      N.copy(xAxis).addScaledVector(Tprev, -xAxis.dot(Tprev));
+      if (N.lengthSq() < 1e-6) N.set(0, 0, 1);
+      N.normalize().negate();
+      T.copy(Tprev);
+
+      let distFromSlot = total;
+      for (let i = count - 1; i >= 0; i--) {
+        if (i < count - 1) {
+          const pv = Math.max(i - 1, 0);
+          T.set(px[i + 1] - px[pv], py[i + 1] - py[pv], pz[i + 1] - pz[pv]);
+          if (T.lengthSq() < 1e-10) T.copy(Tprev);
+          T.normalize();
+          q.setFromUnitVectors(Tprev, T);
+          N.applyQuaternion(q);
+          N.addScaledVector(T, -N.dot(T)).normalize();
+          Tprev.copy(T);
+          distFromSlot -= segLen[i];
+        }
+
+        // in the pile, ease the ribbon's width axis toward world X so folds lie
+        // flat and stack like sheets instead of splaying on edge
+        if (py[i] < 1.1) {
+          Nflat.copy(xAxis).addScaledVector(T, -xAxis.dot(T));
+          if (Nflat.lengthSq() > 1e-5) {
+            Nflat.normalize();
+            if (Nflat.dot(N) < 0) Nflat.negate();
+            const kf = Math.min(0.8, Math.max(0, 1.1 - py[i]) * 0.72);
+            N.lerp(Nflat, kf).normalize();
+          }
+        }
+
+        const o = i * 6;
+        pos[o] = px[i] + N.x * HALF_W;
+        pos[o + 1] = py[i] + N.y * HALF_W;
+        pos[o + 2] = pz[i] + N.z * HALF_W;
+        pos[o + 3] = px[i] - N.x * HALF_W;
+        pos[o + 4] = py[i] - N.y * HALF_W;
+        pos[o + 5] = pz[i] - N.z * HALF_W;
+
+        const snx = T.y * N.z - T.z * N.y;
+        const sny = T.z * N.x - T.x * N.z;
+        const snz = T.x * N.y - T.y * N.x;
+        nrm[o] = nrm[o + 3] = snx;
+        nrm[o + 1] = nrm[o + 4] = sny;
+        nrm[o + 2] = nrm[o + 5] = snz;
+
+        // v grows from 0 at the free (first-printed) end -> receipt header there
+        const v = distFromSlot / REPEAT_WORLD;
+        const p = i * 4;
+        uv[p] = 0;
+        uv[p + 1] = v;
+        uv[p + 2] = 1;
+        uv[p + 3] = v;
+      }
+
+      posAttr.needsUpdate = true;
+      nrmAttr.needsUpdate = true;
+      uvAttr.needsUpdate = true;
+      ribGeo.setDrawRange(0, (count - 1) * 6);
+    }
+
+    /* ---------------------------------------------------- camera rig */
+    const target = new THREE.Vector3(0, 1.28, 0);
+    const sph = {
+      r: reduceMotion ? 6.0 : 7.4,
+      th: 0.62,
+      ph: reduceMotion ? 1.12 : 1.27,
+    };
+    const sphT = { r: 6.0, th: 0.62, ph: 1.12 };
+    let dragging = false,
+      lastX = 0,
+      lastY = 0,
+      idleSpin = 0;
+
+    canvas.addEventListener("pointerdown", (e) => {
+      dragging = true;
+      idleSpin = 0;
+      lastX = e.clientX;
+      lastY = e.clientY;
+      canvas.setPointerCapture(e.pointerId);
+    });
+    canvas.addEventListener("pointermove", (e) => {
+      if (!dragging) return;
+      sphT.th -= (e.clientX - lastX) * 0.006;
+      sphT.ph = Math.max(
+        0.2,
+        Math.min(1.46, sphT.ph - (e.clientY - lastY) * 0.006)
+      );
+      lastX = e.clientX;
+      lastY = e.clientY;
+    });
+    const endDrag = (e) => {
+      dragging = false;
+      try {
+        canvas.releasePointerCapture(e.pointerId);
+      } catch (_) {}
+    };
+    canvas.addEventListener("pointerup", endDrag);
+    canvas.addEventListener("pointercancel", endDrag);
+    canvas.addEventListener(
+      "wheel",
+      (e) => {
+        e.preventDefault();
+        sphT.r = Math.max(4.4, Math.min(13, sphT.r + e.deltaY * 0.0022));
+      },
+      { passive: false }
+    );
+
+    function updateCamera(dt) {
+      if (!dragging && !reduceMotion) {
+        idleSpin = Math.min(1, idleSpin + dt * 0.4);
+        sphT.th += dt * 0.035 * idleSpin;
+      }
+      sph.r += (sphT.r - sph.r) * 0.06;
+      sph.th += (sphT.th - sph.th) * 0.08;
+      sph.ph += (sphT.ph - sph.ph) * 0.08;
+      const sinP = Math.sin(sph.ph);
+      camera.position.set(
+        target.x + sph.r * sinP * Math.sin(sph.th),
+        target.y + sph.r * Math.cos(sph.ph),
+        target.z + sph.r * sinP * Math.cos(sph.th)
+      );
+      camera.lookAt(target);
+    }
+
+    /* -------------------------------------------------------- resize */
+    function resize() {
+      const w = window.innerWidth,
+        h = window.innerHeight;
+      renderer.setSize(w, h, false);
+      camera.aspect = w / h;
+      camera.updateProjectionMatrix();
+    }
+    window.addEventListener("resize", resize);
+    resize();
+
+    /* --------------------------------------------------- life-cycle */
+    let phase = "printing",
+      holdT = 0,
+      fade = 1;
+    resetTape();
+
+    const phaseEl = document.getElementById("phase");
+    const lenEl = document.getElementById("len");
+    const dotEl = document.getElementById("dot");
+    let uiT = 0;
+
+    function lifecycle(dt) {
+      if (phase === "printing") {
+        if (count >= MAX) {
+          phase = "resting";
+          holdT = 0;
+        }
+      } else if (phase === "resting") {
+        holdT += dt;
+        if (holdT > (reduceMotion ? 3 : 5.5)) phase = "clearing";
+      } else if (phase === "clearing") {
+        fade -= dt * (reduceMotion ? 5 : 1.7);
+        if (fade <= 0) {
+          fade = 0;
+          resetTape();
+          phase = "refill";
+        }
+      } else if (phase === "refill") {
+        fade += dt * (reduceMotion ? 5 : 2.2);
+        if (fade >= 1) {
+          fade = 1;
+          phase = "printing";
+        }
+      }
+      const f = Math.max(0, Math.min(1, fade));
+      const wantTransparent = f < 1;
+      if (paperMat.transparent !== wantTransparent) {
+        paperMat.transparent = wantTransparent;
+        paperMat.needsUpdate = true;
+      }
+      paperMat.opacity = f;
+
+      const printing = phase === "printing";
+      ledMat.emissiveIntensity =
+        printing && !reduceMotion
+          ? 0.9 + 0.9 * (0.5 + 0.5 * Math.sin(performance.now() * 0.008))
+          : printing
+          ? 1.4
+          : 0.22;
+
+      uiT += dt;
+      if (uiT > 0.13) {
+        uiT = 0;
+        lenEl.textContent = (totalLen * 0.42).toFixed(2);
+        phaseEl.textContent =
+          phase === "printing"
+            ? "printing"
+            : phase === "resting"
+            ? "settled - " + Math.round(count * 0.7) + " folds"
+            : "new roll";
+        dotEl.classList.toggle("printing", printing);
+      }
+    }
+
+    /* --------------------------------------------------------- loop */
+    let acc = 0,
+      prev = performance.now(),
+      running = true;
+
+    document.addEventListener("visibilitychange", () => {
+      running = !document.hidden;
+      if (running) {
+        prev = performance.now();
+        requestAnimationFrame(frame);
+      }
+    });
+
+    function frame(now) {
+      if (!running) return;
+      let dt = (now - prev) / 1000;
+      prev = now;
+      if (dt > 0.05) dt = 0.05;
+
+      acc += dt;
+      let steps = 0;
+      while (acc >= H && steps < 6) {
+        step();
+        acc -= H;
+        steps++;
+      }
+
+      updateRibbon();
+      lifecycle(dt);
+      updateCamera(dt);
+      renderer.render(scene, camera);
+      requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+
+    /* offline driver — only when ?debug is present (used for verification) */
+    if (location.search.indexOf("debug") !== -1) {
+      window.__tape = {
+        tick(n, cam) {
+          for (let s = 0; s < n; s++) step();
+          if (cam) for (let s = 0; s < cam; s++) updateCamera(1 / 60);
+          updateRibbon();
+          lifecycle(1 / 60);
+          renderer.render(scene, camera);
+        },
+        snap: () => ({ count, phase, totalLen, camR: sph.r.toFixed(2) }),
+        cam: (r, th, ph) => {
+          sphT.r = sph.r = r;
+          sphT.th = sph.th = th;
+          sphT.ph = sph.ph = ph;
+        },
+      };
+    }
+  })();
+</script>
