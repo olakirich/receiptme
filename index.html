@@ -8,7 +8,7 @@
 <meta name="color-scheme" content="light">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&display=swap">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Archivo+Black&family=Geist+Mono:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;700&family=Playfair+Display:ital@1&display=swap">
 <style>
   :root {
     --page:   #d0d5db;
@@ -560,6 +560,7 @@
 </div>
 
 <script src="receipt-ascii-3d.js"></script>
+<script src="receipt-ascii-italic.js"></script>
 <script>
 (() => {
   "use strict";
@@ -690,6 +691,29 @@ Site :: alexrivera.co
   bindCounter(els.headline, els.headlineCount, 30, 27);
   bindCounter(els.text, els.count, 600, 540);
   refreshGo();
+
+  /* Prefilled demo text acts like a placeholder: clear it the first time the
+     field is focused; if the user leaves it blank, put the demo text back. */
+  [[els.headline, HEADLINE_DEFAULT], [els.text, BODY_DEFAULT]].forEach(([el, def]) => {
+    el.dataset.demo = "1";
+    el.addEventListener("focus", () => {
+      if (el.dataset.demo === "1") {
+        el.value = "";
+        el.dataset.demo = "";
+        el.dispatchEvent(new Event("input"));
+      }
+    });
+    el.addEventListener("blur", () => {
+      if (!el.value.trim()) {
+        el.value = def;
+        el.dataset.demo = "1";
+        el.dispatchEvent(new Event("input"));
+      }
+    });
+    el.addEventListener("input", () => {
+      if (el.value !== def) el.dataset.demo = "";
+    });
+  });
 
   /* ================================================================
      SEEDED RANDOM
@@ -875,14 +899,36 @@ Site :: alexrivera.co
     const total = (chars * 0.13 + rnd() * 6 + 1).toFixed(2);
 
     let promoCount = chars < 150 ? 3 : chars < 350 ? 2 : 1;
+    // big tokens must stay within figBanner's glyph set: 0-9, A, +, %, space.
+    const pPct  = 5 + ri(18) * 5;
+    const pPct2 = 10 + ri(9) * 10;
+    const pYr   = 1998 + ri(28);
+    const pYr2  = 1990 + ri(35);
+    const pDays = 3 + ri(120);
+    const pQ    = 8 + ri(400);
     const PROMOS = [
-      { k: "NOW", big: String(Math.max(12, words * 7)), l: "IDEAS CHEAPER" },
-      { k: "OVER", big: String(Math.max(1, words)), l: "WORDS SERVED FRESH" },
-      { k: "GOOD SINCE", big: "2016", l: "AND STILL GOING" },
-      { k: "", big: "100%", l: "CERTIFIED HUMAN" },
-      { k: "TODAY ONLY", big: "1", l: "OF A KIND" },
-      { k: "", big: "A+", l: "WOULD READ AGAIN" },
-      { k: "UP TO", big: String(40 + (chars % 360)), l: "POINTS EARNED" },
+      { k: "NOW",        big: String(Math.max(12, words * 7)),  l: "IDEAS PER MINUTE" },
+      { k: "OVER",       big: String(Math.max(1, words)),       l: "WORDS SERVED FRESH" },
+      { k: "GOOD SINCE", big: String(pYr),                      l: "AND STILL GOING" },
+      { k: "",           big: "100%",                           l: "CERTIFIED HUMAN" },
+      { k: "TODAY ONLY", big: "1",                              l: "OF A KIND" },
+      { k: "",           big: "A+",                             l: "WOULD READ AGAIN" },
+      { k: "UP TO",      big: String(40 + (chars % 360)),       l: "POINTS EARNED" },
+      { k: "BATCH",      big: String(100 + ri(900)),            l: "MADE THIS MORNING" },
+      { k: "",           big: pPct + "%",                       l: "LESS SMALL TALK" },
+      { k: "DAY",        big: String(pDays),                    l: "STREAK UNBROKEN" },
+      { k: "IN STOCK",   big: "0",                              l: "BAD TAKES" },
+      { k: "AISLE",      big: String(1 + ri(9)),                l: "SELF IMPROVEMENT" },
+      { k: "",           big: pPct2 + "%",                      l: "OFF YOUR NEXT EXCUSE" },
+      { k: "RATED",      big: "5",                              l: "STARS BY MYSELF" },
+      { k: "LOT",        big: digits(4),                        l: "SMALL BATCH THOUGHTS" },
+      { k: "EST",        big: String(pYr2),                     l: "FAMILY RUN OPINIONS" },
+      { k: "",           big: "24",                             l: "HOUR OVERTHINKING" },
+      { k: "BUY 1",      big: "1",                              l: "GET NOTHING FREE" },
+      { k: "QUEUE",      big: String(pQ),                       l: "PEOPLE AHEAD OF YOU" },
+      { k: "",           big: "200%",                           l: "OF THE DAILY VIBE" },
+      { k: "WARRANTY",   big: "0",                              l: "DAYS REMAINING" },
+      { k: "",           big: "99%",                            l: "SURE ABOUT THIS" },
     ];
     for (let i = PROMOS.length - 1; i > 0; i--) { const j = ri(i + 1); [PROMOS[i], PROMOS[j]] = [PROMOS[j], PROMOS[i]]; }
     const promos = PROMOS.slice(0, promoCount);
@@ -906,7 +952,7 @@ Site :: alexrivera.co
     };
   }
 
-  function renderReceipt(header, blocks, tile, data) {
+  function renderReceipt(header, blocks, tile, data, headBand) {
     function draw(ctx, measure) {
       let y = 0;
       const ink = `rgb(${INK.join(",")})`;
@@ -1003,8 +1049,12 @@ Site :: alexrivera.co
       y += lh + 10;
       rule(y, true); y += 14;
 
-      /* ---- header (headline field) ---- */
-      if (header) {
+      /* ---- header (headline field) — italic-serif ASCII band; para() is the fallback ---- */
+      if (headBand && headBand.width > 1) {
+        const bh = CW * headBand.height / headBand.width;
+        if (!measure) ctx.drawImage(headBand, PAD, y, CW, bh);
+        y += bh + 12;
+      } else if (header) {
         para(header.toLowerCase(), mono(17, 700), CW, "center");
         y += 10;
       }
@@ -1050,15 +1100,15 @@ Site :: alexrivera.co
       leader("CARDHOLDER", data.cardholder, { size: 11 });
       y += 16;
 
-      /* ---- promo panels: big token as ASCII, framed by * rows.
-             PROMO_3D on -> the solid (black) panels use the 3D isometric font,
-             the outlined panels stay FIGlet -> some ads as-is, some in the new style. ---- */
+      /* ---- promo panels, framed by * rows. Big token per panel is 3D isometric
+             ASCII (PROMO_3D, solid panels) or FIGlet (paper panels). ---- */
       const has3D = PROMO_3D && typeof ReceiptAscii3D !== "undefined";
+
       data.promos.forEach((pm, i) => {
+        const P = 16, inner = CW - P * 2;
         const solid = i % 2 === 0;
         const fg = solid ? paper : ink;
         const use3d = has3D && solid;
-        const P = 16, inner = CW - P * 2;
 
         const bRows = use3d ? ReceiptAscii3D.banner(pm.big, { depth: 2 }) : figBanner(pm.big);
         const bCols = Math.max(...bRows.map(r => r.length));
@@ -1072,7 +1122,6 @@ Site :: alexrivera.co
         const lLines = wrap(pm.l, inner);
         const lLH = 16;
 
-        // 3D output is ~10 rows vs FIGlet's 5 — panel height follows the actual row count
         const panelH = P + 20 + kH + bRows.length * bLH + 14 + lLines.length * lLH + 12 + P;
 
         if (!measure) {
@@ -1191,6 +1240,9 @@ Site :: alexrivera.co
     els.feed.innerHTML = "";
 
     await assetsReady();
+    const headBand = (header && typeof ReceiptAsciiItalic !== "undefined")
+      ? await ReceiptAsciiItalic.toCanvas(header, { color: `rgb(${INK.join(",")})` })
+      : null;
     await new Promise(r => setTimeout(r, 260));
 
     let tile = null;
@@ -1199,7 +1251,7 @@ Site :: alexrivera.co
       tile = style === "ascii" ? asciiTile(sq) : printTile(sq);
     }
     const data = buildData(header, blocks);
-    outCanvas = renderReceipt(header, blocks, tile, data);
+    outCanvas = renderReceipt(header, blocks, tile, data, headBand);
 
     const view = outCanvas.cloneNode(false);
     view.getContext("2d").drawImage(outCanvas, 0, 0);

@@ -7,3 +7,6 @@
 # local scratch / preview files
 _*.html
 *.old.*
+
+# meme bitmaps — not wired into the app right now
+assets/memes/
