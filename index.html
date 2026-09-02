@@ -596,6 +596,7 @@ Site :: alexrivera.co
   let photoSource = null;
   let style = "print";
   let outCanvas = null;
+  let outBlob = null;
 
   const els = {
     start: $("#start"), printing: $("#printing"), result: $("#result"),
@@ -1004,8 +1005,13 @@ Site :: alexrivera.co
               let x = PAD;
               for (const wd of words) { ctx.fillText(wd, x, y + size); x += ctx.measureText(wd).width + gap; }
             } else {
-              ctx.textAlign = align === "center" ? "center" : "left";
-              ctx.fillText(ln, align === "center" ? W / 2 : PAD, y + size);
+              // Center manually (textAlign:"center" mispositions emoji-bearing
+              // strings in iOS Safari canvas — e.g. the "thank you" line).
+              ctx.textAlign = "left";
+              const x = align === "center"
+                ? PAD + Math.max(0, (maxW - ctx.measureText(ln).width) / 2)
+                : PAD;
+              ctx.fillText(ln, x, y + size);
             }
           }
           y += lh;
@@ -1252,6 +1258,8 @@ Site :: alexrivera.co
     }
     const data = buildData(header, blocks);
     outCanvas = renderReceipt(header, blocks, tile, data, headBand);
+    outBlob = null;
+    outCanvas.toBlob(b => { outBlob = b; }, "image/png");
 
     const view = outCanvas.cloneNode(false);
     view.getContext("2d").drawImage(outCanvas, 0, 0);
@@ -1267,15 +1275,51 @@ Site :: alexrivera.co
     }, wait);
   });
 
+  const saveViaLink = blob => {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url; a.download = "receipt-me.png";
+    document.body.appendChild(a); a.click(); a.remove();
+    setTimeout(() => URL.revokeObjectURL(url), 1000);
+  };
+
+  const canShareFile = blob => {
+    try {
+      return !!navigator.canShare &&
+        navigator.canShare({ files: [new File([blob], "receipt-me.png", { type: "image/png" })] });
+    } catch (e) { return false; }
+  };
+
+  // Advertise the mobile flow up front: the share sheet's "Save Image" /
+  // "Save to Photos" is one tap, versus hunting for a folder in Files.
+  const onTouch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
+  if (onTouch && typeof navigator !== "undefined" && navigator.canShare) {
+    els.download.textContent = "Save image";
+    const hint = document.querySelector(".saved");
+    if (hint) hint.textContent = "Save to Photos or Files";
+  }
+
+  const saveReceipt = async blob => {
+    if (!blob) return;
+    if (canShareFile(blob)) {
+      try {
+        await navigator.share({
+          files: [new File([blob], "receipt-me.png", { type: "image/png" })],
+          title: "Receipt me",
+        });
+        return;
+      } catch (err) {
+        if (err && err.name === "AbortError") return; // user closed the sheet
+        // any other failure: fall back to a plain download
+      }
+    }
+    saveViaLink(blob);
+  };
+
   els.download.addEventListener("click", () => {
+    if (outBlob) { saveReceipt(outBlob); return; }
     if (!outCanvas) return;
-    outCanvas.toBlob(blob => {
-      const url = URL.createObjectURL(blob);
-      const a = document.createElement("a");
-      a.href = url; a.download = "receipt-me.png";
-      document.body.appendChild(a); a.click(); a.remove();
-      setTimeout(() => URL.revokeObjectURL(url), 1000);
-    }, "image/png");
+    outCanvas.toBlob(blob => { outBlob = blob; saveReceipt(blob); }, "image/png");
   });
 
   els.again.addEventListener("click", () => show(els.start));
