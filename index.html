@@ -1290,10 +1290,21 @@ Site :: alexrivera.co
     } catch (e) { return false; }
   };
 
-  // Advertise the mobile flow up front: the share sheet's "Save Image" /
+  // Phone / tablet only. Deliberately strict: a desktop — including a
+  // touchscreen laptop — must always get the plain automatic download, so we
+  // key off the user-agent's own "mobile" signal, not pointer type.
+  const isPhone = (() => {
+    const uaData = navigator.userAgentData;
+    if (uaData && typeof uaData.mobile === "boolean") return uaData.mobile;
+    if (/Android|iPhone|iPod/i.test(navigator.userAgent)) return true;
+    // iPadOS Safari reports as "Macintosh" — spot it via the touch points.
+    if (/iPad/i.test(navigator.userAgent)) return true;
+    return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+  })();
+
+  // On a phone, advertise the flow up front: the share sheet's "Save Image" /
   // "Save to Photos" is one tap, versus hunting for a folder in Files.
-  const onTouch = typeof matchMedia === "function" && matchMedia("(pointer: coarse)").matches;
-  if (onTouch && typeof navigator !== "undefined" && navigator.canShare) {
+  if (isPhone && navigator.canShare) {
     els.download.textContent = "Save image";
     const hint = document.querySelector(".saved");
     if (hint) hint.textContent = "Save to Photos or Files";
@@ -1301,7 +1312,10 @@ Site :: alexrivera.co
 
   const saveReceipt = async blob => {
     if (!blob) return;
-    if (canShareFile(blob)) {
+    // Desktop always gets a plain download. Only phones go through the share
+    // sheet — on desktop navigator.share() opens the OS share dialog (or
+    // silently rejects), which is not what a "Download" button means.
+    if (isPhone && canShareFile(blob)) {
       try {
         await navigator.share({
           files: [new File([blob], "receipt-me.png", { type: "image/png" })],
